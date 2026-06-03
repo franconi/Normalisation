@@ -1,0 +1,7 @@
+attributes: A B C E F G
+A -> CG
+B -> A
+E -> GF
+GF -> E
+A ->> B
+CG ->> ABC

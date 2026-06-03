@@ -1,0 +1,170 @@
+\documentclass[10pt]{article}
+\usepackage[a4paper, margin=2cm]{geometry}
+
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext}
+\usepackage[utf8]{inputenc}
+\usepackage[british]{babel}
+
+\usepackage{named}
+
+\usepackage{graphicx}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{algorithm2e}
+\usepackage{url}
+\usepackage{xcolor}
+
+\newtheorem*{definition}{Definition}
+\newtheorem*{theorem}{Theorem}
+\newtheorem*{lemma}{Lemma}
+\newtheorem*{corollary}{Corollary}
+
+\newcommand{\ols}[1]{\mskip.5\thinmuskip\overline{\mskip-.5\thinmuskip {#1} \mskip-.5\thinmuskip}\mskip.5\thinmuskip} % overline short
+\newcommand{\olsi}[1]{\,\overline{\!{#1}}} % overline short italic
+
+\title{\vspace{-4ex}KG-ER$_0$ vs symmetry\\ - draft -}
+\author{Enrico Franconi et al}
+\date{\today}
+\begin{document}
+\maketitle
+
+%\thispagestyle{empty}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{KG-ER$_0$ %{\small(KG-ER with simple keys, i.e., tree pattern keys of depth 1)}
+}
+
+%%%
+
+\subsection*{Vocabulary}
+$\mathcal{T}$ (Object type names $T$) \\
+\phantom{}\hspace{1em}
+partitioned into $\mathcal{E}$ (entity type names $E$) \\
+\phantom{}\hspace{1em}
+and $\mathcal{V}$ (value type names $V$)\\
+$\mathcal{P}$ (relationship type names $P$, with associated arity $\alpha(P)\geq 2$)\\
+$\mathcal{R}$ (role names $R$)
+
+\noindent
+
+%%%
+
+\subsection*{Declarations}
+
+\noindent
+$\textsc{RelType}(P\ (T_1, \cdots , T_n))$ 
+~~~~~{ 
+\parbox[t]{\textwidth}{%
+one for each $P\in\mathcal{P}$\\
+$n=\alpha(P)$\\
+\parbox[t]{\textwidth}{%
+induces~ 
+$\tau:\{(P,i)\mid P\in\mathcal P,\ 1\leq i\leq\alpha(P)\}\to\mathcal T$ ~~~with $\tau(P,i)=T_i$}}}
+
+\noindent
+$\textsc{RoleName}(P.i, R)$ 
+~~~~~~~~~~~~~~~~~~~~~~~{ 
+\parbox[t]{\textwidth}{%
+$1\leq i\leq \alpha(P)$\\
+induces a bijection from $\mathcal{R}$ to 
+$\displaystyle\{(P,i)\mid P\in\mathcal P,\ 1\leq i\leq\alpha(P)\}$
+}}
+
+%%%
+
+\subsection*{Constraints}
+
+$\textsc{Mand}(E, P.i)$
+\hfill { $\tau(P,i)=E$}\\
+%
+$\textsc{Key}(P\ (P.i_1, \cdots , P.i_m))$ \hfill{ $m>0$ ~;~ \(1\leq i_j\leq\alpha(P)\) ~;~ \(i_j\neq i_k\) for $j\neq k$}\\
+%
+$\textsc{Id}(E, P)$ 
+\hfill { $\alpha(P)\geq 2 ~;~ \tau(P,1)=E ~;~ \tau(P,j)\in\mathcal V ~\text{ for }~ 2\leq j\leq\alpha(P)$}\\
+%
+$\textsc{IsA}((E_1,\cdots,E_m)\ E)$ \hfill{ $m\geq 1$}\\
+$\textsc{Disjoint}((E_1,\cdots,E_m)\ E)$ \hfill{ $m\geq 2$}\\
+$\textsc{Cover}((E_1,\cdots,E_m)\ E)$ \hfill{ $m\geq 2$}
+
+%%%
+
+\subsection*{Semantics}
+
+\noindent$
+\begin{array}{ll}
+E: & \text{a unary relation over OIDs,}\\
+V: & \text{a unary relation over values,}\\
+P: & \text{a relation of arity \(\alpha(P)\) over OIDs or values.}
+\end{array}
+$\\
+OIDs and values are disjoint.
+%%%
+\\
+
+%%%
+\noindent
+$\textsc{RelType}(P\ (T_1, \cdots , T_n))$
+
+$P.1\subseteq T_1 ~~~\cdots~~~ P.n\subseteq T_n$
+
+\noindent
+$\textsc{Mand}(E, P.i)$
+
+$E\subseteq P.i$
+
+\noindent
+$\textsc{Key}(P\ (P.i_1, \cdots , P.i_m))$
+
+$P.i_1 \cdots P.i_m\rightarrow P.1\cdots P.{\alpha(P)}$
+
+%\noindent
+%$\textsc{ExtKey}(E\ (P_1.i_1, \cdots , P_m.i_m))$
+%
+%$P'_j=\tau_{[\ols{i_j}\rightarrow 1\,,\,\ols{i_{j+1}}\rightarrow\,j+1]}P_j
+%~~;~~P=P_1'\bowtie\cdots\bowtie P'_m
+%~~;~~P.2 \cdots P.m\!+\!1\rightarrow P.1~~;~~E\subseteq P.1$ % with $\tau(P,1)=E$
+
+%exists $P$ s.t. $\tau_{[\ols{i_j}\rightarrow 1\,,\,\ols{i_{j+1}}\rightarrow\,j+1]}P_j=\pi_{1,j}P
+%~~;~~P.2 \cdots P.m\!+\!1\rightarrow P.1~~;~~E\subseteq P.1$ % with $\tau(P,1)=E$
+
+\vspace{.5ex}\noindent
+$\textsc{Id}(E, P)$
+
+$
+P.2 \cdots P.\alpha(P)\rightarrow P.1
+\qquad
+P.1\rightarrow P.2\cdots P.\alpha(P)
+\qquad
+E\subseteq P.1 
+$
+
+\noindent
+$\textsc{IsA}((E_1,\cdots,E_m)\ E)$
+
+$E_1\subseteq E ~~;~~\cdots ~~;~~E_m\subseteq E$
+
+\noindent
+$\textsc{Disjoint}((E_1,\cdots,E_m)\ E)$ 
+ 
+$E_1\subseteq E ~~;~~\cdots ~~;~~E_m\subseteq E ~~;~~
+E_i\cap E_j=\emptyset \text{ with } i\neq j$
+
+\noindent
+$\textsc{Cover}((E_1,\cdots,E_m)\ E)$
+
+$E_1\subseteq E ~~;~~\cdots ~~;~~E_m\subseteq E ~~;~~
+E\subseteq E_1 \cup\cdots\cup E_m$
+
+\begin{definition}[ER-Satisfiability]
+A KG-ER$_0$ schema \(\mathcal S\) is \emph{ER-satisfiable} if it is
+logically satisfiable, \(\mathcal S\not\models E=\emptyset\) for each
+\(E\in\mathcal E\), and \(\mathcal S\not\models P=\emptyset\) for each
+\(P\in\mathcal P\).
+\end{definition}
+
+
+\end{document}

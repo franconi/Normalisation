@@ -1,0 +1,2598 @@
+\documentclass[10pt]{article}
+\usepackage[a4paper, margin=2cm]{geometry}
+
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext}
+\usepackage[utf8]{inputenc}
+\usepackage[british]{babel}
+
+\usepackage{named}
+
+\usepackage{graphicx}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{algorithm2e}
+\usepackage{url}
+\usepackage{xcolor}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+
+\newcommand{\ols}[1]{\mskip.5\thinmuskip\overline{\mskip-.5\thinmuskip {#1} \mskip-.5\thinmuskip}\mskip.5\thinmuskip} % overline short
+\newcommand{\olsi}[1]{\,\overline{\!{#1}}} % overline short italic
+
+\title{\vspace{-4ex}KG-ER$_0$, \textsf{CARM}, and  \textsf{gCARM}\\ - draft -}
+\author{Enrico Franconi et al}
+\date{\today}
+\begin{document}
+\maketitle
+
+\immediate\write18{git log -1 --format=\%ad --date=short > gitdate.tex}
+\input{gitdate.tex}
+
+%\thispagestyle{empty}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{KG-ER$_0$ %{\small(KG-ER with simple keys, i.e., tree pattern keys of depth 1)}
+}
+
+%%%
+
+\subsection*{Vocabulary}
+$\mathcal{T}$ (Object type names $T$) \\
+\phantom{}\hspace{1em}
+partitioned into $\mathcal{E}$ (entity type names $E$) \\
+\phantom{}\hspace{1em}
+and $\mathcal{V}$ (value type names $V$)\\
+$\mathcal{P}$ (relationship type names $P$, with associated arity $\alpha(P)\geq 2$)\\
+$\mathcal{R}$ (role names $R$)
+
+\noindent
+
+%%%
+
+\subsection*{Declarations}
+
+\noindent
+$\textsc{RelType}(P\ (T_1, \cdots , T_n))$ 
+~~~~~{ 
+\parbox[t]{\textwidth}{%
+one for each $P\in\mathcal{P}$\\
+$n=\alpha(P)$\\
+\parbox[t]{\textwidth}{%
+induces~ 
+$\tau:\{(P,i)\mid P\in\mathcal P,\ 1\leq i\leq\alpha(P)\}\to\mathcal T$ ~~~with $\tau(P,i)=T_i$}}}
+
+\noindent
+$\textsc{RoleName}(P.i, R)$ 
+~~~~~~~~~~~~~~~~~~~~~~~{ 
+\parbox[t]{\textwidth}{%
+$1\leq i\leq \alpha(P)$\\
+induces a bijection from $\mathcal{R}$ to 
+$\displaystyle\{(P,i)\mid P\in\mathcal P,\ 1\leq i\leq\alpha(P)\}$
+}}
+
+%%%
+
+\subsection*{Constraints}
+
+$\textsc{Mand}(E, P.i)$
+\hfill { $\tau(P,i)=E$}\\
+%
+$\textsc{Key}(P\ (P.i_1, \cdots , P.i_m))$ \hfill{ $m>0$ ~;~ \(1\leq i_j\leq\alpha(P)\) ~;~ \(i_j\neq i_k\) for $j\neq k$}\\
+%
+$\textsc{Id}(E\ (P_1.i_1, \cdots , P_m.i_m))$ 
+\hfill { $m>0$ ~;~ \(i_j\in\{1,2\}\) ~;~ $\alpha(P_j)=2$ and $\tau(P_j,\overline{i_j})=E$ ~with \(1\leq j\leq m\) ~;}\\
+\phantom{}\hfill { $\overline{i}=1 \text{ if } i=2 \text{ and }\overline{i}=2 \text{ if } i=1 ~;~ P_h\neq P_k ~\text{for } h\neq k$}\\
+%
+$\textsc{IsA}((E_1,\cdots,E_m)\ E)$ \hfill{ $m\geq 1$}\\
+$\textsc{Disjoint}((E_1,\cdots,E_m)\ E)$ \hfill{ $m\geq 2$}\\
+$\textsc{Cover}((E_1,\cdots,E_m)\ E)$ \hfill{ $m\geq 2$}
+
+%%%
+
+\subsection*{Semantics}
+
+\noindent$
+\begin{array}{ll}
+E: & \text{a unary relation over OIDs,}\\
+V: & \text{a unary relation over values,}\\
+P: & \text{a relation of arity \(\alpha(P)\) over OIDs or values.}
+\end{array}
+$\\
+OIDs and values are disjoint.
+%%%
+\\
+
+%%%
+\noindent
+$\textsc{RelType}(P\ (T_1, \cdots , T_n))$
+
+$P.1\subseteq T_1 ~~~\cdots~~~ P.n\subseteq T_n$
+
+\noindent
+$\textsc{Mand}(E, P.i)$
+
+$E\subseteq P.i$
+
+\noindent
+$\textsc{Key}(P\ (P.i_1, \cdots , P.i_m))$
+
+$P.i_1 \cdots P.i_m\rightarrow P.1\cdots P.{\alpha(P)}$
+
+%\noindent
+%$\textsc{ExtKey}(E\ (P_1.i_1, \cdots , P_m.i_m))$
+%
+%$P'_j=\tau_{[\ols{i_j}\rightarrow 1\,,\,\ols{i_{j+1}}\rightarrow\,j+1]}P_j
+%~~;~~P=P_1'\bowtie\cdots\bowtie P'_m
+%~~;~~P.2 \cdots P.m\!+\!1\rightarrow P.1~~;~~E\subseteq P.1$ % with $\tau(P,1)=E$
+
+%exists $P$ s.t. $\tau_{[\ols{i_j}\rightarrow 1\,,\,\ols{i_{j+1}}\rightarrow\,j+1]}P_j=\pi_{1,j}P
+%~~;~~P.2 \cdots P.m\!+\!1\rightarrow P.1~~;~~E\subseteq P.1$ % with $\tau(P,1)=E$
+
+\vspace{.5ex}\noindent
+$\textsc{Id}(E\ (P_1.i_1, \cdots , P_m.i_m))$
+
+$
+P_\iota.2 \cdots P_\iota.(m\!+\!1)\rightarrow P_\iota.1
+\qquad
+P_\iota.1\rightarrow P_\iota.2\cdots P_\iota.(m\!+\!1)
+\qquad
+E\subseteq P_\iota.1 
+$
+
+for a fresh auxiliary derived relation \(P_\iota\) for this constraint \(\iota\)
+\textit{defined} as:
+
+\qquad$
+P_\iota=P_1'\bowtie\cdots\bowtie P'_m 
+\qquad
+P'_j=\rho_{[\ols{i_j}\,\rightarrow\, 1\,,\,{i_j}\,\rightarrow\, j+1]}P_j
+\quad\text{with }1\leq j\leq m
+$
+
+\noindent
+$\textsc{IsA}((E_1,\cdots,E_m)\ E)$
+
+$E_1\subseteq E ~~;~~\cdots ~~;~~E_m\subseteq E$
+
+\noindent
+$\textsc{Disjoint}((E_1,\cdots,E_m)\ E)$ 
+ 
+$E_1\subseteq E ~~;~~\cdots ~~;~~E_m\subseteq E ~~;~~
+E_i\cap E_j=\emptyset \text{ with } i\neq j$
+
+\noindent
+$\textsc{Cover}((E_1,\cdots,E_m)\ E)$
+
+$E_1\subseteq E ~~;~~\cdots ~~;~~E_m\subseteq E ~~;~~
+E\subseteq E_1 \cup\cdots\cup E_m$
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \newpage
+%\thispagestyle{empty}
+
+\begin{definition}[ER-Satisfiability]
+A KG-ER$_0$ schema \(\mathcal S\) is \emph{ER-satisfiable} if it is
+logically satisfiable, \(\mathcal S\not\models E=\emptyset\) for each
+\(E\in\mathcal E\), and \(\mathcal S\not\models P=\emptyset\) for each
+\(P\in\mathcal P\).
+\end{definition}
+
+
+\begin{definition}[Identity resolving]
+A KG-ER$_0$ schema $\mathcal S$ induces a preorder \(\preceq_{\mathcal S}\)
+over entity types, where \(E_i\preceq_{\mathcal S} E\) iff
+\(\mathcal S\models E_i\subseteq E\).  Collapsing the equivalence classes
+of the preorder, where \(E\equiv_{\mathcal S}E'\) iff
+\(E\preceq_{\mathcal S}E'\) and \(E'\preceq_{\mathcal S}E\), yields a
+partial order over equivalence classes of entity types.  The Hasse
+diagram of $\mathcal S$, denoted \(H_{\mathcal S}\), is the directed
+graph whose edge relation is the transitive reduction of this partial
+order, oriented from each class to its immediate larger classes.
+
+A schema $\mathcal S$ is identity resolving if:
+\begin{itemize}
+\item the schema \(\mathcal S\) is ER-satisfiable;
+\item each connected component of \(H_{\mathcal S}\) has a unique
+maximal equivalence class;
+\item these maximal classes are pairwise disjoint, i.e.,
+\(\mathcal S\models E\cap E'=\emptyset\) for any representatives \(E\)
+and \(E'\) of two distinct maximal classes;
+%
+\item for each entity type \(E\), the schema \(\mathcal S\) entails an
+identity constraint for \(E\), not necessarily declared explicitly in
+\(\mathcal S\), whose identifying positions all have value type.  That
+is, for some binary relations $P_1,\cdots,P_m$ it holds that
+\(\mathcal S\models\textsc{Id}(E\ (P_1.i_1,\cdots,P_m.i_m))\) with
+\(\tau(P_j,i_j)\in\mathcal V\) for \(1\leq j\leq m\).
+%
+\end{itemize}
+The roots of \(H_{\mathcal S}\), namely the unique maximal equivalence
+classes of its connected components, are the \emph{kind classes} of
+\(\mathcal S\).  When an entity type name is needed, any fixed
+representative of a kind class is called a \emph{kind}.
+\end{definition}
+
+\begin{theorem}[Decidability]
+\label{thm:kger-decidability}
+The entailment problem for KG-ER$_0$ schemas and the non-emptiness
+problem for entity types and relationship types are decidable and
+EXPTIME-complete.
+\end{theorem}
+
+The proof is given in Appendix~A.1.
+
+\begin{definition}[Join dependency]
+Let \(R(U)\) be a relation schema. A \emph{join dependency} over \(R\)
+is an expression
+\(
+\bowtie[X_1,\ldots,X_n],
+\)
+where
+\(
+n\geq 2,\quad X_i\subseteq U,\quad\text{and}\quad
+X_1\cup\cdots\cup X_n = U.
+\)
+A relation \(R\) satisfies this join dependency if
+\(
+R =
+\pi_{X_1}(R) \bowtie \cdots \bowtie \pi_{X_n}(R).
+\)
+%Keys, functional dependencies, and multivalued dependencies are special cases of join dependencies.
+\end{definition}
+
+\begin{definition}[5$^{th}$ normal form]
+A relation $R$ is in 5$^{th}$ normal form if and only if every join
+dependency of $R$ is implied by the keys of $R$.
+\end{definition}
+
+\begin{theorem}[KG-ER\(_0^+\) as a conservative extension]
+\label{thm:kger-definitional-extension}
+Let KG-ER\(_0^+\) be the compiled extension of KG-ER\(_0\) with a fresh
+class \(\mathcal Q_{\mathsf{Id}}\) of auxiliary relationship names.
+Symbols in \(\mathcal Q_{\mathsf{Id}}\) may be used only for the
+relationships introduced when compiling identification constraints.  
+
+For a KG-ER\(_0\) schema \(\mathcal S\), its KG-ER\(_0^+\) expansion
+\(\mathcal S^+\) is obtained as follows.  For every identification
+constraint
+\(
+\iota=\textsc{Id}(E\ (P_1.i_1,\ldots,P_m.i_m))
+\)
+introduce:
+\begin{itemize}
+	\item a fresh auxiliary relationship name
+\(P_\iota\in\mathcal Q_{\mathsf{Id}}\) with
+\(\alpha(P_\iota)=m+1\),
+	\item fresh role names for its positions,
+	\item $\tau(P_\iota,1)=E,$
+	\item $\tau(P_\iota,j+1)=\tau(P_j,i_j) ~\text{ with } 1\leq j\leq m.$
+\end{itemize}
+
+\noindent
+Replace \(\iota\) with the inclusion dependencies
+\[
+P_j[\ols{i_j},i_j]\subseteq P_\iota[1,j+1],
+\qquad
+P_\iota[1,j+1]\subseteq P_j[\ols{i_j},i_j] ~\text{ with } 1\leq j\leq m,
+\qquad
+E\subseteq P_\iota.1,
+\]
+together with the keys
+\[
+P_\iota.2\cdots P_\iota.(m+1)\to P_\iota.1,\qquad
+P_\iota.1\to P_\iota.2\cdots P_\iota.(m+1).
+\]
+Then \(\mathcal S^+\) is a lossless variant of \(\mathcal S\), and 
+in particular a conservative extension: every model of \(\mathcal S\) has a
+unique expansion to a model of \(\mathcal S^+\), every model of
+\(\mathcal S^+\) reduces to a model of \(\mathcal S\) by forgetting the
+auxiliary names in \(\mathcal Q_{\mathsf{Id}}\), and for every constraint
+\(\varphi\) over the original KG-ER\(_0\) vocabulary,
+\[
+\mathcal S\models\varphi
+\quad\text{iff}\quad
+\mathcal S^+\models\varphi .
+\]
+\end{theorem}
+
+The proof is given in Appendix~A.1.
+
+
+By Theorem~\ref{thm:kger-definitional-extension}, in the sequel we may work
+in the compiled KG-ER\(_0^+\) expansion of a KG-ER\(_0\) schema and
+suppress the superscript \(+\) whenever no confusion arises.
+
+\begin{definition}[Key/non-key decomposition of KG-ER\(_0^+\)]
+Let \(\mathcal S\) be a compiled KG-ER\(_0^+\) schema.  Keeping its
+vocabulary and declarations fixed, write
+\[
+\mathcal S=\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\cup\mathcal N_{\mathcal S},
+\]
+where the four components are defined as follows:
+\begin{itemize}
+\item \(\mathcal B_{\mathcal S}\) is the declaration background.  For
+every declared relationship position \(P.i\), including auxiliary
+positions \(P_\iota.i\), it fixes the arity \(\alpha(P)\), the type
+assignment \(\tau(P,i)\), the typing inclusion
+\(P.i\subseteq\tau(P,i)\), and the disjointness between OIDs and
+values.
+\item \(\mathcal D_{\mathcal S}\) contains exactly the inclusion
+dependencies introduced by the KG-ER\(_0^+\) encoding of identification
+constraints.  Thus, for every compiled identification constraint
+\(\iota=\textsc{Id}(E\ (P_1.i_1,\ldots,P_m.i_m))\) and every
+\(1\leq j\leq m\), it contains the two projection inclusions
+\[
+P_j[\ols{i_j},i_j]\subseteq P_\iota[1,j+1],
+\qquad
+P_\iota[1,j+1]\subseteq P_j[\ols{i_j},i_j],
+\]
+together with the unary inclusion \(E\subseteq P_\iota.1\).  It contains
+no key dependency.
+\item \(\mathcal K_{\mathcal S}\) contains all key dependencies,
+including the explicit keys on the auxiliary relationships \(P_\iota\);
+in particular, the two keys introduced for each \(P_\iota\) belong to
+\(\mathcal K_{\mathcal S}\).
+\item \(\mathcal N_{\mathcal S}\) contains all remaining non-key
+constraints.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Relative key/non-key entailment separation]
+\label{thm:kger-pure-key-separation}
+Let \(\mathcal S\) be the compiled KG-ER\(_0^+\) expansion of an
+ER-satisfiable KG-ER\(_0\) schema.  Then, for every key dependency
+\(\kappa\) over a non-auxiliary
+relationship \(R\in\mathcal P\),
+\[
+\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\cup\mathcal N_{\mathcal S}\models\kappa
+\quad\text{iff}\quad
+\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\models\kappa .
+\]
+Thus, once the inclusion dependencies introduced by the KG-ER\(_0^+\)
+encoding of identification constraints are fixed, the remaining non-key
+constraints do not contribute to the entailment of keys.
+\end{theorem}
+
+The proof is given in Appendix~A.1.
+
+
+\begin{theorem}[5$^{th}$ normal form of KG-ER$_0$]
+\label{thm:kger-5}
+Let \(\mathcal S\) be an ER-satisfiable KG-ER\(_0\) schema, and let
+\(R\) be a declared relationship type of arity \(n\).  Let
+\(\Sigma_R\) be the set of all key dependencies
+\(X\to R.1\cdots R.n\) entailed by \(\mathcal S\), with
+\(X\subseteq\{R.1,\ldots,R.n\}\).  Then, for every join
+dependency \(J\) over the attributes of \(R\),
+\[
+\mathcal S\models J
+\quad\text{iff}\quad
+\Sigma_R\models J .
+\]
+Hence every such relationship type \(R\) is in 5$^{th}$ normal form.
+\end{theorem}
+
+The proof is given in Appendix~A.1.
+
+
+\begin{corollary}[KG-ER$_0$ cannot express symmetric binary relations]
+\label{cor:kger-no-symmetry}
+Let \(\mathcal S\) be an ER-satisfiable KG-ER\(_0\) schema, let
+\(R\) be a declared relationship type of arity \(2\), and assume that
+\(\mathcal S\) admits a model \(M\) containing an \(R\)-tuple
+\((\alpha,\beta)\) with \(\alpha\neq\beta\); equivalently,
+\(\mathcal S\not\models\forall x,y.\ R(x,y)\to x=y\).
+Then \(\mathcal S\) does not entail that \(R\) is symmetric:
+\[
+\mathcal S\not\models \forall x,y.\ R(x, y) \rightarrow R(y, x).
+\]
+\end{corollary}
+
+The proof is given in Appendix~A.1.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \newpage
+%\thispagestyle{empty}
+\section{\textsf{CARM}}
+
+\begin{definition}[Dependency terminology]
+For a dependency of the form \(\mathbf A \to \operatorname{att}(R)\) (key), \(\mathbf A \to \mathbf B\) (functional dependency), or
+\(\mathbf A \twoheadrightarrow \mathbf B\) (multivalued dependency), we call \(\mathbf A\) the
+\emph{determinant}.
+
+For an inclusion dependency
+\(
+R[\mathbf A] \subseteq S[\mathbf B],
+\)
+with $\mathbf A\subseteq\operatorname{att}(R)$ and $\mathbf B\subseteq\operatorname{att}(S)$,
+we call \((R,\mathbf A)\) (the source) and \((S,\mathbf B)\) (the target)
+\emph{projection occurrences}.
+\end{definition}
+
+\begin{definition}[\textsf{CARM} relational database schema]
+A \textsf{CARM} (Canonical Abstract Relational Model) relational database schema is a tuple
+\[
+\mathcal C =
+(\mathcal Q,\operatorname{att},\operatorname{dom},
+ \Sigma_K,\Sigma_I,\Sigma_{\mathsf{cov}},\Sigma_{\mathsf{disj}})
+\]
+satisfying the following conditions.
+
+\begin{itemize}
+
+\item \textbf{Relations and attributes.}
+For every relation symbol \(R\in\mathcal Q\),
+\(\operatorname{att}(R)\) is a finite set of attributes, equipped with a
+fixed total order.  The function \(\operatorname{dom}\) maps every
+attribute \(A\in\operatorname{att}(R)\) to its domain.
+
+\item \textbf{Keys.}
+\(\Sigma_K\) is a finite set of key dependencies.  A key dependency on
+\(R\in\mathcal Q\) is written
+\[
+K \to \operatorname{att}(R),
+\]
+where \(K\subseteq \operatorname{att}(R)\) and $K\neq \emptyset$.  We call \(K\) a key of \(R\).
+
+%\item \textbf{Fifth normal form.}
+%For every relation symbol \(R\), every join dependency over
+%\(\operatorname{att}(R)\) that is part of the dependency theory of \(R\)
+%is implied by the keys of \(R\).  Equivalently, each relation schema
+%\(R(\operatorname{att}(R))\) is in PJ/NF, or fifth normal form, with
+%respect to its declared keys.
+%
+\item \textbf{Inclusion dependencies.}
+\(\Sigma_I\) is a finite set of typed inclusion dependencies of the form
+\[
+R[\mathbf A] \subseteq S[\mathbf B]\quad\text{ with }\quad
+R,S\in\mathcal Q.
+\]
+Here \(\mathbf A\) and \(\mathbf B\) are duplicate-free lists of
+attributes of \(R\) and \(S\), respectively, ordered according to the
+fixed attribute order of their relation:
+\[
+\mathbf A\subseteq \operatorname{att}(R),\quad
+\mathbf B\subseteq \operatorname{att}(S),\quad
+|\mathbf A|=|\mathbf B|\neq\emptyset
+\]
+where set notation refers to the underlying set of attributes in the
+list.  Corresponding attributes have the same domain.  The semantics is
+\[
+\pi_{\mathbf A}(R)\subseteq \pi_{\mathbf B}(S).
+\]
+
+\item \textbf{Projection occurrences.}
+A source or target of an inclusion dependency, covering constraint, or
+disjointness constraint is called a projection occurrence.  Thus an
+occurrence is a pair \((R,\mathbf A)\), where \(\mathbf A\) is an ordered
+duplicate-free list of attributes of \(R\).  When no confusion is
+possible, we write only \(\mathbf A\) for the occurrence
+\((R,\mathbf A)\), and we treat them as ordered sets of attributes.
+
+\item \textbf{Key/occurrence compatibility.}
+For every projection occurrence \((R,\mathbf A)\) and every declared key \(K\) of
+\(R\), one of the following holds:
+\[
+\mathbf A = K,
+\qquad
+\mathbf A \subsetneq K,
+\qquad
+\mathbf A \cap K = \emptyset.
+\]
+That is, no projection occurrence partially overlaps a key unless it is
+contained in that key.
+
+\item \textbf{Occurrence non-overlap.}
+For any two projection occurrences \((R,\mathbf A)\) and
+\((R,\mathbf B)\), either
+\[
+\mathbf A=\mathbf B\quad \text{ or }\quad\mathbf A\cap\mathbf B=\emptyset.
+\]
+That is, distinct projection occurrences of the same relation are either
+identical or disjoint.
+
+\item \textbf{Covering constraints.}
+\(\Sigma_{\mathsf{cov}}\) is a finite set of constraints of the form
+
+\(
+\mathsf{Cover}
+\bigl((R_1,\mathbf A_1),\ldots,(R_n,\mathbf A_n);
+(S,\mathbf B)\bigr)\\
+\text{with}\quad
+n\geq 1,\quad R_i,S\in\mathcal Q,\quad
+\mathbf A_i\subseteq \operatorname{att}(R_i),\quad
+\mathbf B\subseteq \operatorname{att}(S),\quad
+|\mathbf A_i|=|\mathbf B|\neq\emptyset
+\)
+
+where corresponding attributes of \(\mathbf A_i\) and \(\mathbf B\) have
+the same domain.  The semantics is
+\[
+\pi_{\mathbf A_i}(R_i)\subseteq \pi_{\mathbf B}(S)
+\quad\text{for every }i,
+\qquad
+\pi_{\mathbf B}(S)
+=
+\bigcup_{i=1}^n \pi_{\mathbf A_i}(R_i).
+\]
+
+\item \textbf{Disjointness constraints.}
+\(\Sigma_{\mathsf{disj}}\) is a finite set of constraints of the form
+
+\(
+\mathsf{Disjoint}
+\bigl((R_1,\mathbf A_1),\ldots,(R_n,\mathbf A_n);
+(S,\mathbf B)\bigr)\\
+\text{with}\quad
+n\geq 2,\quad R_i,S\in\mathcal Q,\quad
+\mathbf A_i\subseteq \operatorname{att}(R_i),\quad
+\mathbf B\subseteq \operatorname{att}(S),\quad
+|\mathbf A_i|=|\mathbf B|\neq\emptyset
+\)
+
+where corresponding attributes of \(\mathbf A_i\) and \(\mathbf B\) have
+the same domain.  Its semantics is that the source projections
+are pairwise disjoint:
+\[
+\pi_{\mathbf A_i}(R_i)\subseteq \pi_{\mathbf B}(S)
+\quad\text{for every }i,
+\qquad
+\pi_{\mathbf A_i}(R_i)\cap \pi_{\mathbf A_j}(R_j)=\emptyset
+\quad\text{for } i\neq j.
+\]
+
+\item \textbf{Forest presentation.}
+A schema \(\mathcal C\) induces a preorder
+\(\preceq_{\mathcal C}\) over the finite set of projection
+occurrences of \(\mathcal C\), where
+\((R,\mathbf A)\preceq_{\mathcal C}(S,\mathbf B)\) iff
+\(\mathcal C\models R[\mathbf A]\subseteq S[\mathbf B]\).  Let
+\((R,\mathbf A)\equiv_{\mathcal C}(S,\mathbf B)\) iff both
+\((R,\mathbf A)\preceq_{\mathcal C}(S,\mathbf B)\) and
+\((S,\mathbf B)\preceq_{\mathcal C}(R,\mathbf A)\).  Quotienting by
+\(\equiv_{\mathcal C}\) yields a partial order over equivalence classes
+of projection occurrences.  The Hasse diagram \(H_{\mathcal C}\) is the
+directed graph whose edge relation is the transitive reduction of this
+partial order, oriented from each class to its immediate larger classes.
+
+A \textsf{CARM} schema must have a unique maximal class in each connected
+component of \(H_{\mathcal C}\).  We then fix a covering spanning forest
+\(F_{\mathcal C}\) of \(H_{\mathcal C}\) by choosing, for every
+non-maximal class, one outgoing Hasse edge to a larger class on a path to
+the unique maximal class of its component.  Thus \(F_{\mathcal C}\) is
+rooted towards the maximal classes; these maximal classes are exactly its
+roots.
+\end{itemize}
+
+\end{definition}
+
+\begin{theorem}[5$^{th}$ normal form of \textsf{CARM}]
+\label{lem:carm-5}
+Let \(\mathcal C\) be a satisfiable \textsf{CARM} schema, and let \(R\)
+be a relation symbol that is non-empty in some model of \(\mathcal C\).
+Let \(\Sigma_R\) be the set of all key dependencies
+\(X\to\operatorname{att}(R)\) entailed by \(\mathcal C\). Then, for every
+join dependency \(J\) over \(\operatorname{att}(R)\),
+\[
+\mathcal C\models J
+\quad\text{iff}\quad
+\Sigma_R\models J .
+\]
+Hence every such relation \(R\) is in 5$^{th}$ normal form.
+\end{theorem}
+
+The proof is given in Appendix~A.2.
+
+
+
+%\begin{definition}[Non-conflicting keys and TGDs~\cite{DBLP:journals/ws/CaliGL12}]
+%Let $\kappa$ be a key, and let $\sigma$ be a TGD of the form
+%$\Phi(\mathbf{X}, \mathbf{Y}) \to \exists \mathbf{Z}\, P(\mathbf{X}, \mathbf{Z}).$
+%Then $\kappa$ is \emph{non-conflicting} $(NC)$ with $\sigma$ iff either:
+%\begin{enumerate}
+%    \item the relational predicate on which $\kappa$ is defined is different from $P$; or
+%    \item the positions of $\kappa$ in $P$ are not a proper subset of the
+%    $\mathbf{X}$-positions in $P$ in the head of $\sigma$, and every variable
+%    in $\mathbf{Z}$ appears only once in the head of $\sigma$.
+%\end{enumerate}
+%
+%\noindent
+%We say $\kappa$ is \emph{non-conflicting} $(NC)$ with a set of TGDs
+%$\Sigma_T$ iff $\kappa$ is NC with every $\sigma \in \Sigma_T$.\\
+%A set of keys $\Sigma_K$ is \emph{non-conflicting} $(NC)$ with $\Sigma_T$
+%iff every $\kappa \in \Sigma_K$ is NC with $\Sigma_T$.
+%\end{definition}
+%
+%%%
+
+%\begin{theorem}[Decidability of query answering]
+%\textsf{CARM} is a special case of a database schema with non-conflicting keys and inclusion dependencies (linear TGDs), in which the separation property between keys and inclusion dependencies holds. 
+%\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \newpage
+\section{KG-ER$_0$ $\leftrightarrow$ \textsf{CARM} --- lossless transformations}
+
+\begin{theorem}[KG-ER$_0$ to \textsf{CARM} with OIDs]
+\label{thm:kgerzero-to-carm-oids}
+Let $\mathcal S$ be a KG-ER$_0$ schema.  Then
+$\mathcal S$ can be translated in linear time into a \textsf{CARM}
+schema $\mathcal C_{\mathcal S}$ over the same OID and value domains.
+The models of $\mathcal S$ and the models of $\mathcal C_{\mathcal S}$
+are in bijection, up to the definitional expansion/reduct of the
+relations introduced for \textsc{Id} constraints.
+\end{theorem}
+
+The proof is given in Appendix~A.3.
+
+
+\begin{theorem}[Identity resolving KG-ER$_0$ to \textsf{CARM} without OIDs]
+\label{thm:kgerzero-to-carm-no-oids}
+Let $\mathcal S$ be an identity resolving KG-ER$_0$ schema.  
+Then $\mathcal S$ can be transformed into an OID-free \textsf{CARM}
+schema $\mathcal C^\circ_{\mathcal S}$ over value domains only.  The
+models of $\mathcal S$ and the models of
+$\mathcal C^\circ_{\mathcal S}$ are in bijection up to renaming of OIDs
+and definitional expansion/reduct of the fixed identifier relationships.
+Once the identities $\iota_K$ have been fixed, the transformation is
+linear in the size of the schema.
+\end{theorem}
+
+The proof is given in Appendix~A.3.
+
+
+\begin{theorem}[\textsf{CARM} without OIDs to KG-ER$_0$]\label{thm:carm-to-kgerzero}
+Let $\mathcal C$ be a \textsf{CARM} schema without OID domains.  Assume
+that the inclusion, covering, and disjoint constraints of $\mathcal C$
+are given by their forest presentation: the nodes are ordered
+source/target projection occurrences and the edges are the inclusion
+dependencies between them.  Then $\mathcal C$ can be transformed into a
+KG-ER$_0$ schema $\mathcal K_{\mathcal C}$ such that the instances of
+$\mathcal C$ are in bijection, up to renaming of the introduced OIDs,
+with the instances of $\mathcal K_{\mathcal C}$.  In particular, the
+transformation is lossless.
+\end{theorem}
+
+The proof is given in Appendix~A.3.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \newpage
+%\thispagestyle{empty}
+\section{\textsf{gCARM} $\leftrightarrow$ \textsf{CARM} --- lossless transformations}
+
+\subsection*{\textsf{gCARM} relational database schema}
+\begin{itemize}
+\item with key, functional, and multivalued dependencies, having an extended conflict-free cover.
+\item with \textit{inclusion dependencies} such that:
+\begin{itemize}
+	\item each source and target of each inclusion dependency is
+    \begin{itemize}
+	\item either equal to the source of a dependency,
+	% \item or a subset of a source of a dependency, 
+	\item or not overlapping with any source of a dependency,
+    \end{itemize} 	
+    \item and
+	\begin{itemize}
+	\item either equal to a different source or target of an inclusion dependency, 
+	\item or not overlapping with any different source or target of an inclusion dependency.
+    \end{itemize} 	
+\end{itemize}
+\item with \textit{covering} and \textit{disjoint} constraints over sources of inclusion dependencies with common targets.
+\end{itemize}
+
+\begin{definition}[Extended conflict-free dependencies]
+Let \(U\) be a finite set of attributes, and let \(D\) be a set of
+functional dependencies and multivalued dependencies over \(U\).
+%
+First define the envelope of \(D\) as
+\[
+\operatorname{Env}(D)
+=
+\{\, X \twoheadrightarrow Y
+\mid
+X \in \operatorname{LHS}(D),\;
+D \models X \twoheadrightarrow Y,\;
+D \not\models X \to Y
+\,\}.
+\]
+That is, \(\operatorname{Env}(D)\) contains the genuine multivalued
+dependencies implied by \(D\), excluding those that are actually functional
+dependencies.
+%
+For a set \(M\) of multivalued dependencies, say that an MVD
+\(
+X \twoheadrightarrow Y
+\)
+splits a set of attributes \(Z \subseteq U\) if
+\[
+Z \cap (Y - X) \neq \varnothing
+\quad\text{and}\quad
+Z \cap (U - XY) \neq \varnothing.
+\]
+
+For \(X \subseteq U\), let \(\operatorname{dep}_{M}(X)\) denote the
+dependency basis of \(X\) with respect to \(M\), i.e. the partition of
+\(U-X\) induced by the MVDs determined by \(X\).
+%
+The set \(M\) is conflict-free if:
+\begin{enumerate}
+    \item no MVD in $M$ splits any $X \in \operatorname{LHS}(M)$,
+    \item and, for all \(X,Y \in \operatorname{LHS}(M)\), 
+    $\operatorname{dep}_{M}(X) \cap \operatorname{dep}_{M}(Y)
+    \subseteq
+    \operatorname{dep}_{M}(X \cap Y).$
+\end{enumerate}
+%
+The set \(D\) is extended conflict-free if \(\operatorname{Env}(D)\) is conflict-free.
+
+Finally, \(D\) has an extended conflict-free cover if there exists a set
+\(D'\) of FDs and MVDs such that
+$
+D^+ = {D'}^+
+$
+and \(D'\) is extended conflict-free.
+\end{definition}
+
+\begin{theorem}[Lossless decomposition~\cite{YuanOzsoyoglu1987LogicalDesign}]
+\label{thm:fdmvd}
+Let \(U\) be a finite set of attributes, and let \(D\) be a set of
+functional dependencies and multivalued dependencies over \(U\) --- no other join dependencies.
+\(D\) admits a lossless, dependency-preserving 5NF decomposition if and only if
+\(D\) has an extended conflict-free cover.
+\end{theorem}
+
+% \begin{definition}[Boyce--Codd Normal Form]
+% Let \(R(U)\) be a relation schema over attributes \(U\), and let \(F\) be a
+% set of functional dependencies over \(U\). We say that \(R\) is in
+% Boyce--Codd normal form (BCNF) with respect to \(F\) if, for every
+% functional dependency
+% \(
+% X \to Y
+% \)
+% such that
+% \(
+% F \models X \to Y,
+% \)
+% one of the following holds:
+% \(
+% Y \subseteq X
+% \)
+% or
+% \(
+% F \models X \to U.
+% \)
+% That is, every non-trivial functional dependency has a superkey as its
+% left-hand side.
+% \end{definition}
+
+% \begin{definition}[Non-critical FD cover]
+% Let \(U\) be a finite set of attributes, and let \(F\) be a set of
+% functional dependencies over \(U\).
+% %
+% A canonical cover \(G\) of \(F\) is called non-critical if:
+
+% \begin{enumerate}
+%     \item \(G^+ = F^+\);
+%     \item every dependency in \(G\) has the form
+%     \(
+%     X \to A
+%     \)
+%     with \(A\) a single attribute and \(A \notin X\);
+%     \item \(G\) is minimal, i.e. no dependency can be removed and no
+%     attribute can be removed from the left-hand side of a dependency
+%     without changing the closure;
+%     % \item for every dependency \(X \to A\) in \(G\), the schema
+%     % \(
+%     % R_{X,A} = X \cup \{A\}
+%     % \)
+%     % is in BCNF with respect to \(F\).
+%     \item for every \(X \to A \in G\) and every non-trivial dependency
+% \(
+% Y \to B
+% \)
+% with
+% \(
+% Y \cup \{B\} \subseteq R_{X,A},
+% \)
+% if
+% \(
+% F \models Y \to B,
+% \)
+% then \(Y\) is a superkey of \(R_{X,A}\), i.e.
+% \(
+% F \models Y \to R_{X,A}.
+% \)
+% \end{enumerate}
+
+% % Equivalently, condition (4) means that for every \(X \to A \in G\),
+% % for every non-trivial dependency
+% % \[
+% % Y \to B
+% % \]
+% % such that
+% % \[
+% % Y \cup \{B\} \subseteq R_{X,A},
+% % \]
+% % if
+% % \[
+% % F \models Y \to B,
+% % \]
+% % then \(Y\) is a superkey of \(R_{X,A}\), i.e.
+% % \[
+% % F \models Y \to R_{X,A}.
+% % \]
+% \end{definition}
+
+% \begin{theorem}[Lossless decomposition for FDs~\cite{Osborn1979CoveringBCNF}]
+% Let \(U\) be a finite set of attributes, and let \(F\) be a set of
+% functional dependencies over \(U\) --- no other join dependencies.
+% \(F\) admits a lossless, dependency-preserving 5NF decomposition if and only if
+% \(F\) has a non-critical canonical cover.
+% \end{theorem}
+
+%\begin{definition}[\textsf{CARM}-admissible decomposition]
+%Let $R(U)$ be a relation of a \textsf{gCARM} schema, let $D_R$ be the
+%FDs and MVDs declared on $R$, and let $\Omega_R$ be the set of ordered
+%attribute lists of $R$ that occur as sources or targets of inclusion,
+%covering, or disjoint constraints.  A decomposition
+%\[
+%  \Delta_R=\{R^1(U^1),\ldots,R^k(U^k)\}
+%\]
+%is \emph{\textsf{CARM}-admissible} if:
+%\begin{enumerate}
+%    \item it is lossless and dependency-preserving for $D_R$, and the
+%    dependencies projected on each component are expressible as keys of
+%    that component;
+%    \item every $X\in\Omega_R$ is contained in some component $U^a$; one
+%    such component, written $\operatorname{rep}_R(X)$, is fixed;
+%    \item the projection-preservation inclusions of the decomposition,
+%    together with the translated inclusions on the chosen representatives
+%    $\operatorname{rep}_R(X)$, satisfy the \textsf{CARM} key-overlap,
+%    occurrence-overlap, and lexicographic ordering conditions;
+%    \item for every family of component relations
+%    $r^1,\ldots,r^k$ satisfying those keys and projection-preservation
+%    inclusions,
+%    \[
+%      \pi_{U^a}(r^1\bowtie\cdots\bowtie r^k)=r^a
+%      \qquad (1\leq a\leq k).
+%    \]
+%\end{enumerate}
+%\end{definition}
+
+%\begin{theorem}[\textsf{gCARM} to \textsf{CARM}]
+%\label{thm:gcarm-to-carm}
+%Let $\mathcal G$ be a \textsf{gCARM} schema.  Assume that, for every
+%relation $R$ of $\mathcal G$, a \textsf{CARM}-admissible 5$^{th}$ normal
+%form decomposition $\Delta_R$ has been chosen; by
+%Theorem~\ref{thm:fdmvd}, the lossless and dependency-preserving part of
+%such a decomposition exists whenever the FD/MVD constraints of $R$ have
+%an extended conflict-free cover.  Then $\mathcal G$ can be transformed
+%into a \textsf{CARM} schema $\mathcal C_{\mathcal G}$ whose instances
+%are in bijection with the instances of $\mathcal G$.  In particular, the
+%transformation is lossless.
+%\end{theorem}
+\begin{theorem}[\textsf{gCARM} to \textsf{CARM}]
+\label{thm:gcarm-to-carm}
+Let $\mathcal G$ be a \textsf{gCARM} schema. By
+Theorem~\ref{thm:fdmvd}, the lossless and dependency-preserving part of
+such a decomposition exists whenever the FD/MVD constraints of $R$ have
+an extended conflict-free cover.  Then $\mathcal G$ can be transformed
+into a \textsf{CARM} schema $\mathcal C_{\mathcal G}$ whose instances
+are in bijection with the instances of $\mathcal G$.
+\end{theorem}
+
+The proof is given in Appendix~A.4.
+
+
+\begin{theorem}[\textsf{CARM} to \textsf{gCARM}]
+\label{thm:carm-to-gcarm}
+Every \textsf{CARM} schema $\mathcal C$ can be viewed as a
+\textsf{gCARM} schema $\mathcal G_{\mathcal C}$ over the same relation
+symbols and domains.  The two schemas have exactly the same instances;
+hence the transformation is lossless.
+\end{theorem}
+
+The proof is given in Appendix~A.4.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+\section*{Appendix A.1. Proofs for Section 1}
+
+\noindent\textbf{Statement of Theorem~\ref{thm:kger-decidability} (\colorbox{yellow}{\textbf{Decidability}}).}
+The entailment problem for KG-ER$_0$ schemas and the non-emptiness
+problem for entity types and relationship types are decidable and
+EXPTIME-complete.
+
+\begin{proof}[Proof of Theorem~\ref{thm:kger-decidability} (Decidability)]
+EXPTIME-hardness follows by a polynomial time reduction from
+\(\mathcal{ALC}\) satisfiability, and membership follows by a polynomial
+time reduction to \(\mathcal{DLR}^{\pm}\)
+satisfiability~\cite{DBLP:conf/birthday/ArtaleF19}.
+\end{proof}
+
+\noindent\textbf{Statement of Theorem~\ref{thm:kger-definitional-extension} (\colorbox{yellow}{KG-ER\(_0^+\) as a conservative extension}).}
+Let KG-ER\(_0^+\) be the compiled extension of KG-ER\(_0\) with a fresh
+class \(\mathcal Q_{\mathsf{Id}}\) of auxiliary relationship names.
+Symbols in \(\mathcal Q_{\mathsf{Id}}\) may be used only for the
+relationships introduced when compiling identification constraints.  
+
+For a KG-ER\(_0\) schema \(\mathcal S\), its KG-ER\(_0^+\) expansion
+\(\mathcal S^+\) is obtained as follows.  For every identification
+constraint
+\(
+\iota=\textsc{Id}(E\ (P_1.i_1,\ldots,P_m.i_m))
+\)
+introduce:
+\begin{itemize}
+	\item a fresh auxiliary relationship name
+\(P_\iota\in\mathcal Q_{\mathsf{Id}}\) with
+\(\alpha(P_\iota)=m+1\),
+	\item fresh role names for its positions,
+	\item $\tau(P_\iota,1)=E,$
+	\item $\tau(P_\iota,j+1)=\tau(P_j,i_j) ~\text{ with } 1\leq j\leq m.$
+\end{itemize}
+
+\noindent
+Replace \(\iota\) with the inclusion dependencies
+\[
+P_j[\ols{i_j},i_j]\subseteq P_\iota[1,j+1],
+\qquad
+P_\iota[1,j+1]\subseteq P_j[\ols{i_j},i_j] ~\text{ with } 1\leq j\leq m,
+\qquad
+E\subseteq P_\iota.1,
+\]
+together with the keys
+\[
+P_\iota.2\cdots P_\iota.(m+1)\to P_\iota.1,\qquad
+P_\iota.1\to P_\iota.2\cdots P_\iota.(m+1).
+\]
+Then \(\mathcal S^+\) is a lossless variant of \(\mathcal S\), and 
+in particular a conservative extension: every model of \(\mathcal S\) has a
+unique expansion to a model of \(\mathcal S^+\), every model of
+\(\mathcal S^+\) reduces to a model of \(\mathcal S\) by forgetting the
+auxiliary names in \(\mathcal Q_{\mathsf{Id}}\), and for every constraint
+\(\varphi\) over the original KG-ER\(_0\) vocabulary,
+\[
+\mathcal S\models\varphi
+\quad\text{iff}\quad
+\mathcal S^+\models\varphi .
+\]
+
+\begin{proof}[Proof of Theorem~\ref{thm:kger-definitional-extension} (KG-ER\(_0^+\) as a conservative extension)]
+Let \(M\models\mathcal S\).  Keep the interpretation of every old type
+and relationship name unchanged.  For each identification constraint
+\(\iota\), define
+\[
+P_\iota^M=(P'_1)^M\bowtie\cdots\bowtie(P'_m)^M,
+\]
+where
+\[
+P'_{j}=\rho_{[\ols{i_j}\,\rightarrow\,1,\,
+                 i_j\,\rightarrow\,j+1]}P_j
+\quad (1\leq j\leq m).
+\]
+Since \(M\) satisfies the original \(\textsc{Id}\)-clause, this relation
+satisfies the two displayed keys and the inclusion
+\(E\subseteq P_\iota.1\).  The inclusion
+\(P_\iota[1,j+1]\subseteq P_j[\ols{i_j},i_j]\) is immediate from the
+definition of the join.  Conversely, let
+\((c,a)\in P_j[\ols{i_j},i_j]\).  By typing, \(c\in E\), and therefore
+the inclusion \(E\subseteq P_\iota.1\) gives a tuple
+\((c,b_1,\ldots,b_m)\in P_\iota\).  Since \(P_\iota\) is the natural
+join \(P_1'\bowtie\cdots\bowtie P_m'\), membership of
+\((c,b_1,\ldots,b_m)\) in \(P_\iota\) means, in particular, that
+\((c,b_k)\in P_k[\ols{i_k},i_k]\) for every \(1\leq k\leq m\).
+Together with the hypothesis \((c,a)\in P_j[\ols{i_j},i_j]\), all
+\(m\) binary-projection membership conditions are met for the tuple
+\((c,b_1,\ldots,b_{j-1},a,b_{j+1},\ldots,b_m)\), so this tuple also
+belongs to the natural join \(P_\iota\).  The key
+\(P_\iota.1\to P_\iota.2\cdots P_\iota.(m+1)\) forces \(a=b_j\).  Hence
+\((c,a)\in P_\iota[1,j+1]\), proving the other projection inclusion.
+Thus \(M\) expands to a model of \(\mathcal S^+\).
+
+Conversely, let \(N\models\mathcal S^+\).  Forget the auxiliary
+relationship names in \(\mathcal Q_{\mathsf{Id}}\).  All
+non-identification constraints of \(\mathcal S\) are unchanged.  For each
+compiled identification constraint, the inclusion dependencies give
+\[
+P_\iota[1,j+1]=P_j[\ols{i_j},i_j]\quad (1\leq j\leq m).
+\]
+The relation \(P_\iota\) is exactly the join of these binary projections.
+Indeed, every tuple of \(P_\iota\) belongs to the join by the inclusions
+\(P_\iota[1,j+1]\subseteq P_j[\ols{i_j},i_j]\).  Conversely, if
+\((c,a_1,\ldots,a_m)\) belongs to the join, then for each \(j\) the
+inclusion \(P_j[\ols{i_j},i_j]\subseteq P_\iota[1,j+1]\) gives a
+\(P_\iota\)-tuple with first component \(c\) and \((j+1)\)-st component
+\(a_j\).  The key
+\(P_\iota.1\to P_\iota.2\cdots P_\iota.(m+1)\) forces all these tuples to
+coincide, so \((c,a_1,\ldots,a_m)\in P_\iota\).  Therefore \(P_\iota\)
+satisfies the original join definition; together with the two keys and
+\(E\subseteq P_\iota.1\), this is exactly the original
+\(\textsc{Id}\)-semantics.  Hence the reduct of \(N\) is a model of
+\(\mathcal S\).
+
+The argument also shows uniqueness of the expansion: in every model of
+\(\mathcal S^+\), each auxiliary \(P_\iota\) is forced to be the join
+relation used in the original semantics.  Thus expansion and reduct are
+inverse on the original vocabulary.  This gives both losslessness and
+preservation and reflection of entailment over the original vocabulary.
+\end{proof}
+
+\begin{lemma}[\colorbox{yellow}{Chase-level key/non-key separation for KG-ER\(_0^+\)}]
+\label{lem:kger-key-nonkey-separation}
+Let \(\mathcal S\) be the compiled KG-ER\(_0^+\) expansion of an
+ER-satisfiable KG-ER\(_0\) schema, let \(R\in\mathcal P\) be a declared
+non-auxiliary relationship type with \(\alpha(R)\geq 2\), and let \(I\)
+be a finite instance over the non-auxiliary KG-ER\(_0\) vocabulary of
+\(\mathcal S\).  Put
+\(A=\operatorname{adom}(I)\), and let
+\(\mathcal S_{\mathsf{nk}}\) be the non-key part of \(\mathcal S\), i.e.,
+all constraints except key dependencies; the excluded keys include the
+explicit keys on the auxiliary relationships \(P_\iota\).
+In every non-failing chase branch of \(I\) with
+\(\mathcal S_{\mathsf{nk}}\), with fresh existential witnesses and cover
+constraints treated by case splitting, the restriction of \(R\) to the
+initial active domain is unchanged: if an \(R\)-fact
+\(R(\mathbf a)\) occurs in the branch with
+\(\mathbf a\in A^{\alpha(R)}\), then \(R(\mathbf a)\in I\).
+Equivalently, every \(R\)-fact in the branch is either an original
+\(R\)-fact of \(I\), or has at least one component outside \(A\).
+
+Thus, when the chase is viewed in two stages, the non-key stage can add
+only \(R\)-facts containing fresh witnesses.  The subsequent key stage
+does not prune tuples; it only identifies terms, or fails.  Consequently,
+any new \(R\)-fact entirely over \(A\) in the full chase must arise from
+a key equality that identifies fresh witnesses with elements of \(A\).
+\end{lemma}
+
+\begin{proof}
+
+\smallskip\noindent\textbf{Strategy.}
+The proof is by induction on the non-key chase steps.  The induction
+hypothesis is a \emph{simultaneous invariant} maintaining two facts at
+once.  One fact suffices to state the conclusion for \(R\), but the
+second fact, about auxiliary \(P_\iota\)-facts, is needed to make the
+induction go through, because the Id-generated reverse inclusion can
+create a new \(R\)-fact from an auxiliary fact.
+
+\smallskip\noindent\textbf{The simultaneous invariant.}
+The invariant has two clauses, both required to hold throughout the
+chase.
+
+\emph{Clause (i) --- about \(R\)-facts.}
+Each \(R\)-fact in the current instance is either (a) already present
+in \(I\), or (b) contains at least one fresh witness.
+
+\emph{Clause (ii) --- origin form of auxiliary facts.}
+Every auxiliary fact \(P_\iota(c,a_1,\ldots,a_m)\) has one of two
+specific origins:
+\begin{itemize}
+\item \emph{Origin type 1}: it was generated by the inclusion
+\(E\subseteq P_\iota.1\).  In this case all of \(a_1,\ldots,a_m\) are
+fresh witnesses introduced at the moment of creation.
+\item \emph{Origin type 2}: it was generated by the forward
+Id-inclusion from some identifying fact \(P_j(c,a_j)\).  In this case
+the first component \(c\) and the \((j+1)\)-st component \(a_j\) are
+copied from the source fact \(P_j(c,a_j)\); all other non-first
+components (i.e., positions \(k+1\) for \(k\neq j\)) are fresh witnesses
+introduced at the moment of creation.
+\end{itemize}
+
+This precise structural description of auxiliary facts is the key
+insight: every \(P_\iota\)-fact has \emph{at most} one ``old''
+non-first component (and even that one is old only if the source
+\(P_j\)-fact had an old component there).  All other non-first
+positions are fresh.
+
+\smallskip\noindent\textbf{Base case.}
+Initially the instance is \(I\), which contains no auxiliary facts, so
+clause (ii) is vacuously satisfied; and every \(R\)-fact in \(I\) is,
+by definition, present in \(I\), so clause (i) holds.
+
+\smallskip\noindent\textbf{Trivial steps preserve the invariant.}
+The following chase steps have nothing to do with \(R\)-facts or
+auxiliaries:
+\begin{itemize}
+\item \emph{Type declarations} (typing inclusions from
+\(\mathcal B_{\mathcal S}\)): only add unary facts \(T(c)\).
+\item \emph{Entity inclusions} (IsA): only add unary facts.
+\item \emph{Cover constraints}: cause a branch split, not new facts.
+\item \emph{Disjointness constraints}: either do not fire or close the
+branch.
+\end{itemize}
+None of these touches \(R\)-facts or creates \(P_\iota\)-facts, so both
+clauses are preserved unchanged.
+
+\smallskip\noindent\textbf{Mandatory inclusions \(E\subseteq R.i\) preserve the invariant.}
+A mandatory inclusion \(E\subseteq R.i\) for a non-auxiliary
+relationship \(R\) (this comes from \(\mathcal N_{\mathcal S}\)) is an
+existential rule: whenever \(E(c)\) holds and no \(R\)-tuple has \(c\)
+at position \(i\), introduce one.  The new \(R\)-tuple has \(c\) at
+position \(i\) and fresh existentially witnessed values at the other
+\(\alpha(R)-1\) positions.  Since \(\alpha(R)\geq 2\), the new tuple
+has at least one fresh component, so clause (i) holds for the new
+\(R\)-fact (it has a fresh witness, even though \(c\) may be old).
+
+Mandatory inclusions for other relationships \(Q\neq R\) do not affect
+\(R\)-facts at all, so clause (i) for \(R\) is trivially preserved.
+Mandatory inclusions do not generate \(P_\iota\)-facts, so clause (ii)
+is also untouched.
+
+\smallskip\noindent\textbf{Id-generated forward inclusion preserves the invariant.}
+This is the rule
+\[
+P_j[\ols{i_j},i_j]\subseteq P_\iota[1,j+1].
+\]
+It fires when there is a \(P_j\)-tuple in positions
+\((\ols{i_j},i_j)\) --- say with values \((c,a_j)\) --- and no
+corresponding \(P_\iota\)-tuple yet.  It creates a new
+\(P_\iota\)-fact with \(c\) at position 1, \(a_j\) at position
+\(j+1\), and fresh existentially witnessed values at all other
+non-first positions.
+
+This generated \(P_\iota\)-fact satisfies clause (ii)'s origin type 2
+with the source \(P_j(c,a_j)\).  The clause-(ii) form is recorded
+exactly as required: position 1 and position \(j+1\) are copies from
+the source; positions \(k+1\) for \(k\neq j\) are fresh witnesses.
+
+Crucially, this holds \emph{regardless of whether the source
+\(P_j(c,a_j)\) is an original fact of \(I\) or was generated earlier
+by some chase step}.  The invariant is purely about the \emph{form}
+of the auxiliary fact, not about the provenance of its source.
+
+Clause (i) is unaffected because the forward inclusion only generates
+auxiliary facts, not \(R\)-facts.
+
+\smallskip\noindent\textbf{Id-generated reverse inclusion preserves the invariant.}
+This is the dangerous step:
+\[
+P_\iota[1,j+1]\subseteq P_j[\ols{i_j},i_j].
+\]
+It fires when there is a \(P_\iota\)-tuple with values at positions 1
+and \(j+1\) --- say \((c,a)\) --- and no corresponding \(P_j\)-tuple
+yet.  It creates a new \(P_j\)-fact with \(c\) at position
+\(\ols{i_j}\) and \(a\) at position \(i_j\).
+
+If \(P_j=R\), this could potentially create a new \(R\)-fact,
+threatening clause (i).  We case-split on the origin of the source
+\(P_\iota\)-fact.
+
+\emph{Case A --- source has origin type 1} (generated by
+\(E\subseteq P_\iota.1\)).
+By the invariant, the \((j+1)\)-st component of the source is fresh.
+So the value \(a\) being projected to position \(i_j\) of the new
+\(P_j\)-fact is fresh.  The new \(P_j\)-fact thus contains a fresh
+witness.  Clause (i) preserved.
+
+\emph{Case B --- source has origin type 2} (generated from some
+identifying fact \(P_k(c,a_k)\)).
+Two sub-cases on the relationship between \(j\) (the index governing
+the reverse inclusion currently firing) and \(k\) (the index that
+generated the source \(P_\iota\)-fact).
+
+\emph{Sub-case B1: \(j=k\).}
+The reverse inclusion projects positions \((1,j+1)\) of the source
+\(P_\iota\)-fact back to \(P_j\).  By origin type 2 with \(k=j\),
+these positions hold exactly the source \(P_j(c,a_j)\) data.  So the
+reverse inclusion \emph{reproduces the same \(P_j\)-fact}
+\(P_j(c,a_j)\) that was the original source.
+
+Now: if this is an \(R\)-fact (i.e., \(P_j=R\)) entirely over \(A\),
+then by the induction hypothesis (clause (i) applied to the source)
+the source fact was already in \(I\).  So the reproduced fact is
+already in \(I\).  No new \(R\)-fact over \(A\) is created.
+If the source had a fresh component, the reproduced fact also has a
+fresh component.  Clause (i) preserved.
+
+\emph{Sub-case B2: \(j\neq k\).}
+The \((j+1)\)-st component of the source \(P_\iota\)-fact is, by
+origin type 2 with \(k\neq j\), one of the fresh witnesses introduced
+when the source \(P_\iota\)-fact was created.  So the value \(a\)
+being projected to position \(i_j\) of the new \(P_j\)-fact is fresh.
+The new \(P_j\)-fact contains a fresh witness.  Clause (i) preserved.
+
+In all sub-cases of Case B, either the reverse inclusion reproduces a
+\(P_j\)-fact already covered by clause (i), or it creates a
+\(P_j\)-fact with a fresh witness.
+
+Clause (ii) is unaffected because the reverse inclusion creates a
+non-auxiliary \(P_j\)-fact, not a \(P_\iota\)-fact.
+
+\smallskip\noindent\textbf{Conclusion of the inductive step.}
+Every non-key chase rule has been checked: background and type rules,
+mandatory existentials, forward Id-inclusions, and reverse
+Id-inclusions.  All preserve the simultaneous invariant.  By
+induction, the invariant holds at every step of every non-failing
+non-key branch.
+
+In particular, clause (i) gives the first conclusion of the theorem:
+no non-key chase step ever creates a new \(R\)-fact entirely over
+\(A\).  Every all-old \(R\)-fact in any non-key branch was already
+in \(I\).
+
+\smallskip\noindent\textbf{Final consequence about keys.}
+Enforcing keys is equality-generating, not fact-generating.  A key
+step either identifies two terms (merging equivalence classes) or
+fails (if it requires impossible equality).  It does not add or
+delete facts.
+
+So if the full chase (with keys) produces a new \(R\)-fact entirely
+over \(A\), the only way this can happen is: some \(R\)-fact with a
+fresh witness was already in the non-key chase, and a key step then
+identified that fresh witness with an element of \(A\), turning the
+fact into an all-\(A\) tuple.
+
+This is the separation: fresh witnesses can be introduced only by
+non-key steps, and they can be merged into \(A\) only by key steps.
+The two roles are cleanly disjoint.
+\end{proof}
+
+\begin{lemma}[\colorbox{yellow}{Old-domain equality preservation}]
+\label{lem:kger-old-domain-equality}
+Let \(\mathcal S\) be the compiled KG-ER\(_0^+\) expansion of an
+ER-satisfiable KG-ER\(_0\) schema, and let \(I\) be a finite instance
+over the non-auxiliary KG-ER\(_0\) vocabulary of \(\mathcal S\).  Put
+\(A=\operatorname{adom}(I)\).  Fix a non-failing branch of the chase of
+\(I\) with
+\(\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal N_{\mathcal S}\), before applying keys.  Let \(I_D\) be the
+instance obtained from the same initial instance by chasing only with
+\(\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\), and let
+\(I_{DN}\) be the instance obtained on the fixed branch by also chasing
+\(\mathcal N_{\mathcal S}\), again before applying keys.
+
+Let \(\equiv_D\) be the equivalence relation on terms generated by the
+key chase of \(I_D\) with \(\mathcal K_{\mathcal S}\), and let
+\(\equiv_{DN}\) be the equivalence relation generated by the key chase of
+\(I_{DN}\) with \(\mathcal K_{\mathcal S}\).  Assume that the key chase
+of \(I_{DN}\) does not fail; since \(I_D\subseteq I_{DN}\) and key
+dependencies are preserved under taking sub-instances, the key chase of
+\(I_D\) does not fail either.  Then
+\[
+a\equiv_{DN} b \quad\text{iff}\quad a\equiv_D b
+\qquad\text{for all }a,b\in A .
+\]
+Equivalently, adding the remaining non-key constraints before the key
+chase does not create any new equality between initial active-domain
+terms.
+\end{lemma}
+
+\begin{proof}
+
+\smallskip\noindent\textbf{Step 1 --- Easy direction.}
+If \(a\equiv_D b\), then \(a\equiv_{DN} b\) by monotonicity:
+\(I_D\subseteq I_{DN}\), so every key step available in the
+\(I_D\)-chase is also available in the \(I_{DN}\)-chase, and
+equivalences accumulate.
+
+\smallskip\noindent\textbf{Step 2 --- Hard direction: a first-bad-step
+argument.}
+Suppose for contradiction that some \(a,b\in A\) satisfy
+\(a\equiv_{DN} b\) but \(a\not\equiv_D b\).  Then the \(I_{DN}\) key
+chase generates a new \(A\)-\(A\) equality not present in \(\equiv_D\).
+Pick the first key step (in the chase order) that creates such a new
+equality; call it the \emph{chosen first step}.  We derive a
+contradiction by showing this step cannot in fact be the first
+creator of a new \(A\)-\(A\) equality.
+
+\smallskip\noindent\textbf{Step 3 --- Terminology: \(D\)-supported facts.}
+A fact is \emph{\(D\)-supported} if it belongs to \(I_D\).  We need to
+know what the non-\(D\)-supported facts of \(I_{DN}\) look like ---
+i.e., what is in \(I_{DN}\) but not in \(I_D\).
+
+By Lemma~\ref{lem:kger-key-nonkey-separation}, applied not just to a
+single \(R\) but to all non-auxiliary relationships of arity at least
+two simultaneously (Lemma~\ref{lem:kger-key-nonkey-separation}'s proof
+maintains its invariant globally across all chase steps and all
+relationships, even though its statement names a single \(R\)), every
+non-\(D\)-supported relationship fact of arity at least two in
+\(I_{DN}\) contains at least one term not in \(I_D\).  Such a term is
+called a \emph{fresh witness}.  These fresh witnesses come from one of
+two sources:
+\begin{itemize}
+\item a rule in \(\mathcal N_{\mathcal S}\) (e.g., a mandatory
+existential like \(E\subseteq R.i\) fires and introduces a new
+witness), or
+\item a rule in \(\mathcal D_{\mathcal S}\) fired from a
+non-\(D\)-supported trigger (e.g., a forward Id-inclusion firing on a
+\(P_j\)-fact that itself is not in \(I_D\)).
+\end{itemize}
+Unary type facts \(T(c)\) are also added by \(\mathcal N_{\mathcal S}\),
+but unary facts carry no key dependencies and are irrelevant to the key
+chase.
+
+For auxiliary \(P_\iota\)-facts the same kind of invariant applies: the
+Id-inclusions either copy values from binary projections or introduce
+existentials, and any positions filled by fresh existentials sit
+outside \(I_D\) when the trigger is itself outside \(I_D\).
+
+\smallskip\noindent\textbf{Step 4 --- Trivial sub-case: both facts
+\(D\)-supported.}
+The chosen first step uses two facts of the same relationship, agreeing
+on the determinant of a declared key.  If both facts are
+\(D\)-supported (both in \(I_D\)), then the same key step is also
+available in the \(I_D\) key chase.  So the equality it generates is
+already in \(\equiv_D\), contradicting the assumption that it creates a
+new equality.  This sub-case is done.
+
+So from here on, at least one of the two facts in the chosen step is
+not \(D\)-supported.
+
+\smallskip\noindent\textbf{Step 5 --- Setting up old traces via
+minimality.}
+Define the \emph{old trace} of a term \(t\) at any point in the key
+chase as the set of \(A\)-elements equivalent to \(t\) at that point.
+By minimality of the chosen first step:
+\begin{quote}
+Before the chosen step, no current equivalence class contains
+representatives of two distinct \(\equiv_D\)-classes from \(A\).
+\end{quote}
+(If it did, that earlier merger would have been an earlier ``first
+bad step'' --- contradicting minimality.)  Therefore every term in the
+chase, just before the chosen step, has an \emph{unambiguous} old
+trace: either no \(A\)-representative at all, or exactly one
+\(\equiv_D\)-class worth of \(A\)-representatives.
+
+This is the inductive use of minimality.  From now on we can speak of
+``the old trace of \(t\)'' unambiguously, identifying it with a single
+\(\equiv_D\)-class (or ``none'').
+
+\smallskip\noindent\textbf{Step 6 --- Component classification.}
+Use the origin invariant of
+Lemma~\ref{lem:kger-key-nonkey-separation}.  Each component of a
+non-\(D\)-supported fact falls into one of two categories:
+\begin{itemize}
+\item \emph{Type (a): copied from a \(D\)-supported fact.}  Two
+situations: (a1) the component occurs in an initial unary type fact of
+\(I\) --- so it is an \(A\)-element with its own identity; (a2) the
+component was copied through a \(D\)-supported binary projection (e.g.,
+position 1 or position \(j+1\) of a \(P_\iota\)-fact whose source is
+in \(I_D\)).
+\item \emph{Type (b): a fresh witness.}  Either introduced by an
+\(\mathcal N_{\mathcal S}\)-rule, or by a \(\mathcal D_{\mathcal S}\)-rule
+fired from a non-\(D\)-supported trigger.
+\end{itemize}
+We now analyse how each kind of component contributes to determinant
+agreement in the chosen step.
+
+\smallskip\noindent\textbf{Step 7 --- Type-(b) components cannot start
+the first bad merger.}
+A type-(b) component does not occur in \(I_D\), so it has no old trace
+at creation time.  The only way for it to acquire an old trace before
+the chosen step is via an earlier key step.  By minimality (Step~5),
+any such earlier step can have copied into it at most a single
+\(\equiv_D\)-class of \(A\).  So a type-(b) component's current old
+trace is either empty or a single \(\equiv_D\)-class.
+
+Hence determinant agreement involving a type-(b) component cannot be
+the first occasion on which two distinct old traces are merged: it
+carries at most one old trace, so even when the step fires and
+propagates this trace to the conclusion side, the result is just
+copying that single trace --- not merging two.
+
+\smallskip\noindent\textbf{Step 8 --- Type-(a) components, determinant
+agreement.}
+This is where the actual content lies.  The first key step fires
+because two facts \(\phi_1,\phi_2\) of the same relationship agree on
+the determinant \(X\) of a declared key.  Each determinant position
+\(x\in X\) has a component in \(\phi_1\) (call it \(t\)) and a
+component in \(\phi_2\) (call it \(t'\)), with \(t\equiv_{DN} t'\)
+before the step.
+
+If either \(t\) or \(t'\) is type-(b), Step~7 already shows this
+position cannot drive the first \(A\)-\(A\) merger.  So suppose both
+\(t\) and \(t'\) are type-(a).
+
+\emph{Sub-case (a1): copied from an initial unary fact.}  Then \(t\)
+is literally an \(A\)-element with its identity fixed from the start.
+The old trace of \(t\) is just \(\{t\}\) as an \(\equiv_D\)-class (or
+its \(\equiv_D\)-class if any earlier \(\equiv_D\)-equality has merged
+it).  Same for \(t'\).  Agreement on this determinant position can only
+be agreement between two old traces that are already equal --- either
+literally equal \(A\)-elements or already in the same
+\(\equiv_D\)-class.
+
+\emph{Sub-case (a2): copied from a \(D\)-supported binary projection.}
+Now \(\phi_1\) has its determinant component \(t\) copied from some
+\(D\)-supported fact \(\phi_1^D\in I_D\), and similarly \(\phi_2\)'s
+\(t'\) is copied from \(\phi_2^D\in I_D\).  Since the copying preserves
+the position's value through \(\mathcal D_{\mathcal S}\)-rules, the same
+determinant agreement \(t\equiv t'\) is realised at the
+\(D\)-supported level: \(\phi_1^D\) and \(\phi_2^D\) have the same
+components at corresponding positions, modulo \(\equiv_D\).  Therefore
+the key chase of \(I_D\) already fires the same key step on
+\(\phi_1^D\) and \(\phi_2^D\), generating the same equality between the
+corresponding old traces.
+
+In both type-(a) sub-cases, the current step is merging two old traces
+only when those traces are already the same \(\equiv_D\)-class.
+
+\smallskip\noindent\textbf{Step 9 --- Auxiliary keys.}
+The argument above is enough for both auxiliary keys on \(P_\iota\),
+because both have determinants made of type-(a)/(b) components in the
+structure provided by Lemma~\ref{lem:kger-key-nonkey-separation}.
+
+\emph{Auxiliary key \(P_\iota.1\to P_\iota.2\cdots P_\iota.(m+1)\):}
+determinant is position 1.  By
+Lemma~\ref{lem:kger-key-nonkey-separation}'s invariant on
+\(P_\iota\)-facts, position 1 of any \(P_\iota\)-fact is copied from a
+\(D\)-supported identifying projection (the forward inclusion always
+copies into position 1 from a source \(P_k\)-fact).  So the determinant
+component is type-(a2), and any old trace propagated to a non-first
+position by this key step is one already forced by the corresponding
+\(D\)-supported projection --- already in \(\equiv_D\).
+
+\emph{Auxiliary key \(P_\iota.2\cdots P_\iota.(m+1)\to P_\iota.1\):}
+determinant is the bundle of all identifying positions.  Two
+\(P_\iota\)-facts fire this key only when they agree on every
+identifying component.  For positions whose value has an old trace,
+the agreement is again type-(a2), so already in \(\equiv_D\).  For
+positions where one fact's value has no old trace (type-(b) component),
+Step~7 applies: that position carries at most one old trace, so the
+step cannot be the first to merge two old traces.
+
+\smallskip\noindent\textbf{Step 10 --- Contradiction.}
+The chosen first step either:
+\begin{itemize}
+\item merges a class with no old trace into a class with at most one
+old trace (Step~7 covers this --- no new \(A\)-\(A\) equality), or
+\item merges two classes whose old traces are already equal modulo
+\(\equiv_D\) (Step~8 covers this --- also not a new \(A\)-\(A\)
+equality).
+\end{itemize}
+In neither case does the step actually create a new equality between
+two distinct \(\equiv_D\)-classes from \(A\).  This contradicts the
+choice of the step as ``the first one that does so.''  Therefore no
+such step exists, and the hard direction is proved.
+\end{proof}
+
+\begin{lemma}[\colorbox{yellow}{Old-domain binary-fact preservation}]
+\label{lem:kger-old-domain-binary-fact}
+Let \(\mathcal S\), \(I\), \(A\), \(I_D\), \(I_{DN}\),
+\(\equiv_D\), and \(\equiv_{DN}\) be as in
+Lemma~\ref{lem:kger-old-domain-equality}.  Let \(R\in\mathcal P\) be a
+non-auxiliary binary relationship.  Suppose that the key chase of
+\(I_{DN}\) does not fail.  If, in the quotient of \(I_{DN}\) by
+\(\equiv_{DN}\), there is an \(R\)-fact with ordered old-domain trace
+\((a,b)\in A^2\), then, in the quotient of \(I_D\) by \(\equiv_D\),
+there is already an \(R\)-fact with ordered old-domain trace \((a,b)\).
+\end{lemma}
+
+\begin{proof}
+
+\smallskip\noindent\textbf{Step 1 --- First-bad-trace setup.}
+Suppose for contradiction that the conclusion fails.  Then there is
+some ordered pair \((a,b)\in A^2\) such that the \(I_{DN}\)-quotient
+contains an \(R\)-fact with trace \((a,b)\) but the \(I_D\)-quotient
+does not.
+
+Consider the first key step in the \(I_{DN}\) chase that creates a
+witnessing \(R\)-fact of this kind --- i.e., the first key step after
+which the \(I_{DN}\)-quotient contains an \(R\)-fact with an ordered
+\(A^2\)-trace that the \(I_D\)-quotient has never realised.  Call this
+the \emph{chosen first bad step}, and call the offending \(R\)-fact
+\(R(s,t)\) with \(\equiv_{DN}\)-trace \((a,b)\).
+
+We will derive a contradiction by showing the chosen step cannot in
+fact be the first creator of such a trace.
+
+\smallskip\noindent\textbf{Step 2 --- Case 1: the witnessing
+\(R\)-fact is \(D\)-supported.}
+Suppose \(R(s,t)\in I_D\).  Then the only way it acquires the trace
+\((a,b)\) in the \(I_{DN}\)-quotient is via equalities
+\(s\equiv_{DN} a\) and \(t\equiv_{DN} b\).
+
+By Lemma~\ref{lem:kger-old-domain-equality}, the restriction of
+\(\equiv_{DN}\) to \(A\) equals the restriction of \(\equiv_D\) to
+\(A\).  So if \(s,t\in A\), then \(s\equiv_{DN} a\) gives
+\(s\equiv_D a\), and similarly for \(t\).  But then \(R(s,t)\in I_D\)
+has trace \((a,b)\) already in \(\equiv_D\), contradicting the choice
+of \((a,b)\) as not realised in the \(I_D\)-quotient.
+
+If \(s\) or \(t\) is a \(\mathcal D_{\mathcal S}\)-introduced fresh
+witness in \(\operatorname{adom}(I_D)\setminus A\), the conclusion is
+the same: any equalities propagating \(s\) to \(a\) and \(t\) to \(b\)
+in \(\equiv_{DN}\) are already present in \(\equiv_D\), by the same
+first-bad-trace argument as in
+Lemma~\ref{lem:kger-old-domain-equality} applied to these terms.
+Hence \(R(s,t)\) in the \(I_D\)-quotient has trace \((a,b)\) ---
+contradiction.
+
+So the witnessing fact \(R(s,t)\) cannot be \(D\)-supported.
+
+\smallskip\noindent\textbf{Step 3 --- Case 2: the witnessing
+\(R\)-fact is non-\(D\)-supported.}
+Then \(R(s,t)\in I_{DN}\setminus I_D\).  By
+Lemma~\ref{lem:kger-key-nonkey-separation} applied at the \(I_{DN}\)
+level, every \(R\)-fact in \(I_{DN}\) is either in \(I\) (hence in
+\(I_D\)) or has at least one fresh witness --- a term not in
+\(\operatorname{adom}(I_D)\).  So at least one of \(s,t\) is a fresh
+witness, introduced by an \(\mathcal N_{\mathcal S}\)-rule or by a
+\(\mathcal D_{\mathcal S}\)-rule fired from a non-\(D\)-supported
+trigger.
+
+\smallskip\noindent\textbf{Step 4 --- Component classification
+(mirroring Lemma~\ref{lem:kger-old-domain-equality}).}
+Reuse the component classification from
+Lemma~\ref{lem:kger-old-domain-equality}.  Each component of the
+non-\(D\)-supported fact \(R(s,t)\) is either:
+\begin{itemize}
+\item \emph{Type (a):} copied from \(D\)-supported material (either an
+initial unary type fact giving an \(A\)-element directly, or a
+\(D\)-supported binary projection).
+\item \emph{Type (b):} a fresh witness, introduced by an
+\(\mathcal N_{\mathcal S}\)-rule or by a \(\mathcal D_{\mathcal S}\)-rule
+fired from a non-\(D\)-supported trigger.
+\end{itemize}
+Since \(R(s,t)\) is non-\(D\)-supported, at least one of \(s,t\) is
+type-(b).
+
+\smallskip\noindent\textbf{Step 5 --- Old traces on type-(a) and
+type-(b) components.}
+For each component of \(R(s,t)\) that has an old trace in
+\(\equiv_{DN}\):
+\begin{itemize}
+\item \emph{Type-(a) component:} Its old trace is already visible at
+the \(D\)-level.  If it came from an initial unary fact, it is
+literally an \(A\)-element.  If it came from a \(D\)-supported binary
+projection, the same projection exists in \(I_D\), so the corresponding
+component's old trace is realised in \(\equiv_D\) via the same chain
+of \(D\)-supported facts.
+\item \emph{Type-(b) component:} Has no old trace at creation.  Any
+old trace it later acquires must come from earlier key steps.  By the
+minimality of the chosen first bad step (Step~1), each earlier key
+step has effects already visible at the \(D\)-level --- otherwise that
+earlier step would have been a first bad step.  So a type-(b)
+component's current old trace, if any, corresponds to an analogous
+identification in \(\equiv_D\) between corresponding \(D\)-supported
+terms.
+\end{itemize}
+
+\smallskip\noindent\textbf{Step 6 --- Putting the trace together.}
+By Step~5, the assignments \(s\mapsto a\) and \(t\mapsto b\) (the old
+traces of \(R(s,t)\)'s components in \(\equiv_{DN}\)) each correspond
+to identifications already realised at the \(D\)-level.  The ordered
+pair \((a,b)\) of old traces is therefore reflected, position by
+position, in an \(R\)-fact at the \(D\)-level: there exists some
+\(D\)-supported \(R\)-fact \(R(s',t')\) (possibly with \(s',t'\) being
+\(\mathcal D_{\mathcal S}\)-introduced fresh witnesses, possibly
+\(A\)-elements) such that \(s'\equiv_D a\) and \(t'\equiv_D b\).
+
+The key point is that ordered binary projections through
+\(\mathcal D_{\mathcal S}\)-rules are determined by the
+\(D\)-supported source facts: the inclusion
+\(P_j[\ols{i_j},i_j]\subseteq P_\iota[1,j+1]\) sends position
+\(\ols{i_j}\) to position 1, etc.  So a \(D\)-supported source
+\(R\)-fact projects to a specific ordering in the auxiliary \(P_\iota\),
+and vice versa.  Component ordering is preserved through chained
+projections.
+
+\smallskip\noindent\textbf{Step 7 --- Contradiction.}
+Step~6 shows that the ordered trace \((a,b)\) is realised by some
+\(R\)-fact in the \(I_D\)-quotient --- contradicting the choice of
+\((a,b)\) at Step~1 as a trace not realised in the \(I_D\)-quotient.
+Therefore no chosen first bad step exists, and the lemma holds.
+\end{proof}
+
+\noindent\textbf{Statement of Theorem~\ref{thm:kger-pure-key-separation} (\colorbox{yellow}{Relative key/non-key entailment separation}).}
+Let \(\mathcal S\) be the compiled KG-ER\(_0^+\) expansion of an
+ER-satisfiable KG-ER\(_0\) schema.  Then, for every key dependency
+\(\kappa\) over a non-auxiliary
+relationship \(R\in\mathcal P\),
+\[
+\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\cup\mathcal N_{\mathcal S}\models\kappa
+\quad\text{iff}\quad
+\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\models\kappa .
+\]
+Thus, once the inclusion dependencies introduced by the KG-ER\(_0^+\)
+encoding of identification constraints are fixed, the remaining non-key
+constraints do not contribute to the entailment of keys.
+
+\begin{proof}[Proof of Theorem~\ref{thm:kger-pure-key-separation} (Relative key/non-key entailment separation)]
+The right-to-left implication is immediate by monotonicity of entailment.
+For the converse, let \(\kappa\) be a key dependency over
+\(R\in\mathcal P\).  By the vocabulary convention,
+\(\alpha(R)\geq2\).
+
+Use the standard chase test for implication of the key \(\kappa\).  Start
+from the two-row \(R\)-tableau \(T_\kappa\) whose rows agree exactly on
+the determinant of \(\kappa\), together with the type facts required by
+\(\mathcal B_{\mathcal S}\).  Let \(A\) be the active domain of this
+initial tableau.
+Since \(\mathcal S\not\models R=\emptyset\), there is a model
+\(M\models\mathcal S\) with \(R^M\neq\emptyset\).  Mapping both tableau
+rows to the same tuple of \(R^M\) gives a homomorphism into a model of
+\(\mathcal S\); hence the non-key chase has a non-failing branch, with
+cover choices made according to \(M\), and the subsequent key chase on
+that branch does not fail.
+
+Let \(I_D\) be the result of chasing \(T_\kappa\) with
+\(\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\) along this branch,
+before applying keys, and let \(I_{DN}\) be the corresponding result
+when \(\mathcal N_{\mathcal S}\) is also chased before applying keys.
+By Lemma~\ref{lem:kger-old-domain-equality}, the restriction to \(A\) of
+any key quotient obtained from \(I_{DN}\) is already generated by
+\(\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\).  Therefore, if
+\(\mathcal S\models\kappa\), the chase of \(T_\kappa\) with
+\(\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\) already identifies the corresponding
+components required by \(\kappa\).  By soundness and completeness of the
+chase for key implication,
+\[
+\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\models\kappa .
+\]
+This proves the converse implication.
+\end{proof}
+
+\noindent\textbf{Statement of Theorem~\ref{thm:kger-5} (\colorbox{yellow}{5$^{th}$ normal form of KG-ER$_0$}).}
+Let \(\mathcal S\) be an ER-satisfiable KG-ER\(_0\) schema, and let
+\(R\) be a declared relationship type of arity \(n\).  Let
+\(\Sigma_R\) be the set of all key dependencies
+\(X\to R.1\cdots R.n\) entailed by \(\mathcal S\), with
+\(X\subseteq\{R.1,\ldots,R.n\}\).  Then, for every join
+dependency \(J\) over the attributes of \(R\),
+\[
+\mathcal S\models J
+\quad\text{iff}\quad
+\Sigma_R\models J .
+\]
+Hence every such relationship type \(R\) is in 5$^{th}$ normal form.
+
+\begin{proof}[Proof of Theorem~\ref{thm:kger-5} (5$^{th}$ normal form of KG-ER$_0$)]
+
+\smallskip\noindent\textbf{Step 1 --- Reduce to the compiled schema.}
+By Theorem~\ref{thm:kger-definitional-extension} (KG-ER\(_0^+\) as a
+conservative extension), entailments over the original vocabulary are
+preserved and reflected by passing to the compiled expansion
+\(\mathcal S^+\).  Since both \(\mathcal S\models J\) and
+\(\Sigma_R\models J\) are statements over \(R\)'s vocabulary, we may
+work in \(\mathcal S^+\) instead of \(\mathcal S\) --- gaining the
+explicit auxiliaries \(P_\iota\) and the ordinary key/inclusion
+machinery in \(\mathcal D_{\mathcal S}\), \(\mathcal K_{\mathcal S}\).
+The original Id constraints are now replaced by standard keys and
+inclusions, so the chase becomes a standard chase.
+
+\smallskip\noindent\textbf{Step 2 --- Easy direction (\(\Leftarrow\)).}
+If \(\Sigma_R\models J\), then \(\mathcal S\models J\) by transitivity:
+every dependency in \(\Sigma_R\) is entailed by \(\mathcal S\) by
+definition, so every JD implied by \(\Sigma_R\) is also entailed by
+\(\mathcal S\).
+
+\smallskip\noindent\textbf{Step 3 --- Hard direction
+(\(\Rightarrow\)): chase test setup.}
+Use the standard chase test for JD implication.  For
+\(J=\bowtie[U_1,\ldots,U_k]\), the \emph{JD tableau} is a relation
+containing \(k\) rows, each a copy of \(R\)'s schema.  Distinguished
+variables (call them \(\overline{x}\)) appear at positions in \(U_i\)
+in row \(i\); fresh existentially-bound variables fill all other
+positions.  The chase forces \(J\) if and only if some row eventually
+equals the distinguished tuple \(\overline{x}\) after the chase.
+
+Augment the tableau with the type facts required by \(R\)'s
+declaration (to ensure typing is satisfied).  Let \(A\) be the active
+domain of this initial tableau --- the distinguished variables plus
+the fresh variables across all rows.
+
+Since \(R\in\mathcal P\), the vocabulary convention gives \(n\geq 2\)
+(so the JD test is non-degenerate).
+
+\smallskip\noindent\textbf{Step 4 --- A non-failing chase branch
+exists.}
+Since \(\mathcal S\) is ER-satisfiable, there is a model
+\(M\models\mathcal S\) with \(R^M\neq\emptyset\).  Pick any tuple
+\(\overline{t}\in R^M\) and send every row of the JD tableau to
+\(\overline{t}\): this is a homomorphism into \(M\) because each row,
+projected onto its \(U_i\), agrees with \(\overline{x}\), and
+\(\overline{x}\) maps to \(\overline{t}\).  The type facts of the
+tableau map to type facts true in \(M\) by typing.
+
+Having a homomorphism into a real model \(M\) lets us pick branches
+consistent with \(M\) at every step.  Along such a branch: existential
+rules pick witnesses according to \(M\); disjointness constraints do
+not fire (they hold in \(M\)); the subsequent key chase does not fail
+(keys hold in \(M\)).  So at least one non-failing branch exists; the
+proof works along one such branch.
+
+\smallskip\noindent\textbf{Step 5 --- Restrict to \(A\)-equalities via
+Lemma~\ref{lem:kger-key-nonkey-separation}.}
+By Lemma~\ref{lem:kger-key-nonkey-separation}, along the non-failing
+branch the non-key part of the chase cannot create a new \(R\)-fact
+whose components all lie in \(A\).  Every \(R\)-fact produced by
+non-key rules has at least one fresh witness outside \(A\).
+
+\emph{Consequence.}  If the chase forces the distinguished tuple
+\(\overline{x}\), the only mechanism is quotienting tableau variables
+by key-step equalities, collapsing rows onto each other until one row
+becomes the distinguished tuple.  So the success of the chase is
+entirely determined by the equivalence relation on \(A\) generated by
+key steps along the branch.
+
+\emph{Reduction of the proof obligation.}  We need to show: every
+\(A\)-\(A\) equality generated by a key step is a consequence of
+\(\Sigma_R\).  If so, the chase using \(\Sigma_R\) alone produces the
+same \(A\)-equivalences, hence the same identifications of rows, hence
+forces the distinguished tuple.  By soundness and completeness of the
+chase for JD implication, this gives \(\Sigma_R\models J\).
+
+So everything reduces to a case analysis on the relationship symbol of
+each key step.
+
+\smallskip\noindent\textbf{Step 6 --- Case A: key step on \(R\)
+itself.}
+The step uses a key dependency \(X\to R.1\cdots R.n\) on \(R\).  By
+definition this dependency is entailed by \(\mathcal S\), hence in
+\(\Sigma_R\).  The \(A\)-\(A\) equality it generates is therefore a
+direct consequence of a member of \(\Sigma_R\).
+
+\smallskip\noindent\textbf{Step 7 --- Case B: key step on an auxiliary
+\(P_\iota\).}
+This is the substantive case.  Let
+\(\iota=\textsc{Id}(E\ (P_1.i_1,\ldots,P_m.i_m))\) be the
+identification constraint associated with \(P_\iota\).
+
+\emph{Reduction to binary \(R\).}  By the definition of \(\textsc{Id}\),
+every \(P_k\) in \(\iota\) has \(\alpha(P_k)=2\).  A key step on
+\(P_\iota\) can only propagate to a non-auxiliary \(R\) through the
+bidirectional inclusions \(P_\iota[1,k+1]=P_k[\ols{i_k},i_k]\).  If
+\(R\) has arity greater than two, no Id constraint involves \(R\) as
+an identifying relationship, so no \(P_\iota\)-key can affect
+\(R\)-variables --- done.  So assume \(R=P_j\) for some \(j\), with
+\(R\) binary.
+
+The two auxiliary keys on \(P_\iota\) are:
+\begin{itemize}
+\item \emph{First key:} \(P_\iota.1\to P_\iota.2\cdots P_\iota.(m+1)\)
+--- ``the entity determines its identifying tuple''.
+\item \emph{Second key:}
+\(P_\iota.2\cdots P_\iota.(m+1)\to P_\iota.1\) --- ``the identifying
+tuple determines the entity''.
+\end{itemize}
+We analyse each.
+
+\smallskip\noindent\textbf{Step 7a --- First auxiliary key.}
+Restrict the first key \(P_\iota.1\to P_\iota.2\cdots P_\iota.(m+1)\)
+to positions \(\{1,j+1\}\): it says any two \(P_\iota\)-tuples
+agreeing on position 1 must agree on position \(j+1\).  Via the
+bidirectional inclusion \(P_\iota[1,j+1]=P_j[\ols{i_j},i_j]\), this
+translates to: any two \(P_j\)-tuples agreeing on position
+\(\ols{i_j}\) must agree on position \(i_j\).  That is the functional
+dependency
+\[
+\ols{i_j}\to i_j \quad\text{on } P_j.
+\]
+
+Since \(P_j\) is binary with positions
+\(\{\ols{i_j},i_j\}=\{1,2\}\), this FD together with the trivial
+\(\ols{i_j}\to\ols{i_j}\) is the full key
+\[
+\ols{i_j}\to P_j.1\,P_j.2
+\]
+on \(P_j\).  This is entailed by \(\mathcal S\) (since the key on
+\(P_\iota\) is in \(\mathcal K_{\mathcal S}\) and the bidirectional
+inclusion is in \(\mathcal D_{\mathcal S}\)), so it belongs to
+\(\Sigma_R\).
+
+Any \(A\)-\(A\) equality the first auxiliary key generates is
+therefore a consequence of \(\Sigma_R\).
+
+\smallskip\noindent\textbf{Step 7b --- Second auxiliary key, sub-case
+\(m=1\).}
+The determinant of the second key is the single position
+\(P_\iota.2\).  Via the bidirectional inclusion, this is tied to
+\(P_j.i_j\).  By the symmetric argument to Step~7a, the projection
+gives the full key
+\[
+i_j\to P_j.1\,P_j.2
+\]
+on \(P_j\), also a member of \(\Sigma_R\).
+
+\smallskip\noindent\textbf{Step 7c --- Second auxiliary key, sub-case
+\(m>1\).}
+The determinant spans positions \(\{2,\ldots,m+1\}\), which correspond
+to \(m\) different identifying relationships \(P_1,\ldots,P_m\) (not
+all equal to \(P_j=R\)).  The argument here is structural rather than
+via direct projection.
+
+By the origin invariant in
+Lemma~\ref{lem:kger-key-nonkey-separation}, every \(P_\iota\)-fact has
+its first component and at most one further component (some position
+\(k+1\)) copied from an identifying \(P_k\)-fact; all remaining
+non-first components are fresh witnesses introduced when that
+\(P_\iota\)-fact was created.
+
+Since the initial \(R\)-tableau contains only \(R\)-facts
+(\(R=P_j\), not \(P_k\) for \(k\neq j\)), the positions \(k+1\) with
+\(k\neq j\) of any \(P_\iota\)-fact are populated only by generated
+fresh witnesses.  For the second key to fire on two \(P_\iota\)-facts,
+they must agree on every position \(2,\ldots,m+1\), including those
+\(k\neq j\) positions filled by fresh witnesses.
+
+Such agreement on fresh-witness positions is mediated by generated
+facts and prior key equalities outside the initial \(R\)-tableau.  By
+Lemma~\ref{lem:kger-old-domain-equality}, this generated material
+cannot create a new equality between distinct \(A\)-elements beyond
+what \(\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\) alone forces.  Hence an application of the
+second auxiliary key with \(m>1\) either:
+\begin{itemize}
+\item has no effect on \(A\)-variables at all, or
+\item identifies first components that are already equal in the chase
+quotient --- i.e., the equality it generates is already a consequence
+of prior steps,
+\end{itemize}
+and in neither situation does it produce a new key consequence over
+\(R\) beyond \(\Sigma_R\).
+
+\smallskip\noindent\textbf{Step 8 --- Case C: key step on a
+non-auxiliary \(Q\neq R\).}
+The initial \(R\)-tableau contains no \(Q\)-facts (only \(R\)-facts
+and unary type facts).  Such a key step could affect \(A\)-variables
+only through \(Q\)-facts generated during the chase.
+
+By Lemma~\ref{lem:kger-old-domain-equality}, adding
+\(\mathcal N_{\mathcal S}\) before the key chase cannot create a new
+\(A\)-\(A\) equality beyond those already forced by
+\(\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\).  By Lemma~\ref{lem:kger-key-nonkey-separation},
+every \(Q\)-fact in the chase has at least one fresh component (since
+\(Q\neq R\) and the initial instance has no \(Q\)-facts).  So a key
+step on \(Q\) compares two \(Q\)-facts each with a fresh side; each
+generated equality has at least one fresh side and cannot equate two
+distinct \(A\)-elements.
+
+Hence \(Q\)-key steps contribute no new key consequence over \(R\).
+
+\smallskip\noindent\textbf{Step 9 --- Conclude.}
+By Cases A, B (sub-cases 7a, 7b, 7c), and C, every \(A\)-\(A\)
+equality generated by a key step in the chase is either a
+\(\Sigma_R\)-consequence or has no effect on \(A\)-variables.  The
+restricted quotient on \(A\) --- which is what determines whether the
+chase forces the distinguished tuple --- is therefore generated
+entirely by \(\Sigma_R\)-equalities.
+
+Chasing the JD tableau with \(\Sigma_R\) alone produces the same
+restricted quotient on \(A\).  If the original chase forces the
+distinguished tuple, so does the \(\Sigma_R\)-chase.  By soundness and
+completeness of the chase for JD implication,
+\[
+\mathcal S\models J \quad\Longrightarrow\quad \Sigma_R\models J.
+\]
+
+Combined with the easy direction (Step~2), this gives the iff in the
+theorem.  The corollary ``\(R\) is in 5NF'' is exactly the iff applied
+as the textbook PJ/NF criterion.
+\end{proof}
+
+\noindent\textbf{Statement of Corollary~\ref{cor:kger-no-symmetry} (\colorbox{yellow}{KG-ER$_0$ cannot express symmetric binary relations}).}
+Let \(\mathcal S\) be an ER-satisfiable KG-ER\(_0\) schema, let
+\(R\) be a declared relationship type of arity \(2\), and assume that
+\(\mathcal S\) admits a model \(M\) containing an \(R\)-tuple
+\((\alpha,\beta)\) with \(\alpha\neq\beta\); equivalently,
+\(\mathcal S\not\models\forall x,y.\ R(x,y)\to x=y\).
+Then \(\mathcal S\) does not entail that \(R\) is symmetric:
+\[
+\mathcal S\not\models \forall x,y.\ R(x, y) \rightarrow R(y, x).
+\]
+
+\begin{proof}[Proof of Corollary~\ref{cor:kger-no-symmetry} (KG-ER$_0$ cannot express symmetric binary relations)]
+
+\smallskip\noindent\textbf{Step 1 --- Reduce to the compiled schema.}
+By Theorem~\ref{thm:kger-definitional-extension} (KG-ER\(_0^+\) as a
+conservative extension), entailments over the original vocabulary are
+preserved and reflected by passing to the compiled expansion
+\(\mathcal S^+\).  Since symmetry of the original relationship \(R\)
+is an original-vocabulary property (it only mentions \(R\), not any
+auxiliary \(P_\iota\)), we may work in \(\mathcal S^+\) without loss.
+This grants us the explicit auxiliary relationships and ordinary
+key/inclusion machinery used throughout the development.
+
+\smallskip\noindent\textbf{Step 2 --- Remark: necessity of the
+non-diagonal hypothesis.}
+The non-diagonal hypothesis is genuinely needed: every diagonal binary
+relation satisfies \(R(x,y)\to R(y,x)\) vacuously (because \(x=y\)).
+If \(\mathcal S\) forced \(R\) diagonal, then \(\mathcal S\) would
+entail symmetry, and the corollary's conclusion would fail.  The
+hypothesis rules out exactly this scenario.
+
+\smallskip\noindent\textbf{Step 3 --- Proof by contradiction: chase
+test setup.}
+Assume for contradiction that
+\(\mathcal S\models\forall x,y.\ R(x,y)\to R(y,x)\).  Use the standard
+chase test for entailment of an inclusion-style sentence: take the
+\emph{initial instance} \(I\) consisting of
+\begin{itemize}
+\item the single fact \(R(a,b)\), where \(a\) and \(b\) are fresh
+distinct labelled nulls, and
+\item the type facts forced by the declaration of \(R\) (entity/value
+types on positions 1 and 2).
+\end{itemize}
+Set \(A=\{a,b\}\).  The chase test says: \(\mathcal S\) entails
+\(R(x,y)\to R(y,x)\) if and only if, on every non-failing branch of
+the chase of \(I\) with \(\mathcal S\), the quotient (after the key
+chase) contains \(R(b,a)\).
+
+If we can exhibit a single non-failing branch whose quotient does not
+contain \(R(b,a)\), then symmetry is not entailed --- contradicting
+the assumption.
+
+\smallskip\noindent\textbf{Step 4 --- Building a non-failing branch
+via the model \(M\).}
+We use the model \(M\) from the hypothesis to choose a non-failing
+branch.
+
+Define \(h(a)=\alpha\) and \(h(b)=\beta\).  This extends to a
+homomorphism \(h:I\to M\):
+\begin{itemize}
+\item \(R(a,b)\) maps to \(R(\alpha,\beta)\), which is in \(R^M\) by
+hypothesis.
+\item The type facts of \(I\) are forced by the declaration of \(R\)
+(every model of \(\mathcal S\) satisfies them), so they map to type
+facts true in \(M\).
+\end{itemize}
+So we have a homomorphism from \(I\) into a model of \(\mathcal S\).
+Choose cover branches in the chase according to \(M\).  Along this
+branch: existential rules pick witnesses consistent with \(M\);
+disjointness constraints do not fire (they hold in \(M\)); the
+subsequent key chase does not fail (keys hold in \(M\)).
+
+This gives us a concrete non-failing branch to analyse.
+
+\smallskip\noindent\textbf{Step 5 --- What must happen for symmetry to
+hold.}
+If \(\mathcal S\) entails symmetry, the quotient of this branch must
+contain \(R(b,a)\): more precisely, some \(R\)-fact \(R(s,t)\) in the
+chase, after equivalence closure by the key chase, must satisfy
+\(s\equiv b\) and \(t\equiv a\).  In the language of
+Lemma~\ref{lem:kger-old-domain-binary-fact}, the quotient must contain
+an \(R\)-fact with \emph{ordered old-domain trace \((b,a)\)}.
+
+We will show this is impossible along the chosen non-failing branch.
+The argument has two stages, mirroring the architecture of the
+lemmas:
+\begin{itemize}
+\item \emph{First stage:} the restricted chase (without
+\(\mathcal N_{\mathcal S}\)) does not produce ordered trace \((b,a)\),
+nor does it identify \(a\) with \(b\).
+\item \emph{Second stage:} by
+Lemma~\ref{lem:kger-old-domain-binary-fact}, the full chase (with
+\(\mathcal N_{\mathcal S}\) added) inherits the same absence ---
+adding \(\mathcal N_{\mathcal S}\) creates no new ordered
+\(A^2\)-traces.
+\end{itemize}
+
+\smallskip\noindent\textbf{Step 6 ---
+Lemma~\ref{lem:kger-key-nonkey-separation} restricts the all-old
+\(R\)-facts.}
+By Lemma~\ref{lem:kger-key-nonkey-separation} (chase-level key/non-key
+separation), the non-key stage of the chase cannot create a new
+\(R\)-fact whose components both lie in \(A=\{a,b\}\).  The only
+\(R\)-fact in the chase that is entirely over \(A\) (before any key
+step) is the original \(R(a,b)\) from \(I\).
+
+So any candidate \(R\)-fact with ordered trace \((b,a)\) in the final
+quotient must either:
+\begin{itemize}
+\item be the original \(R(a,b)\), after a key step has identified
+\(a\) with \(b\) (in which case \(R(a,b)=R(b,a)\) trivially), or
+\item be a generated \(R\)-fact \(R(s,t)\) with at least one fresh
+component, brought into trace \((b,a)\) via key-step quotienting.
+\end{itemize}
+
+\smallskip\noindent\textbf{Step 7 --- Restricted chase
+(\(\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\) only) does not produce \(R(b,a)\).}
+Consider first the chase using only
+\(\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\) (omitting \(\mathcal N_{\mathcal S}\)).
+
+The \(\mathcal D_{\mathcal S}\)-inclusions can copy the binary
+projection of \(R(a,b)\) into auxiliary relations \(P_\iota\) (via
+forward Id-inclusions), and project back from \(P_\iota\) to \(R\)
+(via reverse Id-inclusions).  Crucially, these projections
+\emph{preserve the orientation}: a forward inclusion
+\(R[\ols{i_j},i_j]\subseteq P_\iota[1,j+1]\) followed by a reverse
+inclusion \(P_\iota[1,j+1]\subseteq R[\ols{i_j},i_j]\) reproduces
+\(R(a,b)\) in its original orientation, not \(R(b,a)\).  Position
+\(\ols{i_j}\) of the source \(R\)-fact ends up at \(P_\iota.1\), which
+projects back to position \(\ols{i_j}\) of \(R\) --- same place.
+
+Every other relationship fact generated by these inclusions contains
+a fresh witness (by Lemma~\ref{lem:kger-key-nonkey-separation}'s
+auxiliary origin invariant).
+
+Now consider key steps in this restricted chase.  The only ways to
+potentially equate \(a\) with \(b\) or to produce an \(R\)-fact in
+orientation \((b,a)\) would be:
+\begin{itemize}
+\item a key on \(R\) comparing \(R(a,b)\) with itself (trivial) or
+with a fresh-component \(R\)-fact (which can only merge a fresh
+witness with \(a\) or \(b\), not \(a\) with \(b\));
+\item a key on \(P_\iota\) propagating through the bidirectional
+inclusion, but the projections preserve orientation;
+\item a key on some other relationship, all of whose facts have fresh
+components.
+\end{itemize}
+The restricted \(D\)-supported key chase therefore neither identifies
+\(a\) with \(b\) nor produces an all-old \(R\)-fact with ordered
+trace \((b,a)\).
+
+\smallskip\noindent\textbf{Step 8 ---
+Lemma~\ref{lem:kger-old-domain-binary-fact} extends the conclusion to
+the full chase.}
+Now add the remaining non-key constraints \(\mathcal N_{\mathcal S}\)
+back into the picture.  By
+Lemma~\ref{lem:kger-old-domain-binary-fact} (old-domain binary-fact
+preservation), if the full chase quotient contained an all-old
+\(R\)-fact with ordered trace \((b,a)\), then the restricted
+(\(\mathcal B_{\mathcal S}\cup\mathcal D_{\mathcal S}\cup
+\mathcal K_{\mathcal S}\)) chase quotient would also contain such an
+\(R\)-fact.
+
+By Step~7, the restricted chase quotient does not contain an
+\(R\)-fact with ordered trace \((b,a)\).  Therefore, by
+Lemma~\ref{lem:kger-old-domain-binary-fact}, neither does the full
+chase quotient.
+
+In particular, the final quotient omits \(R(b,a)\).
+
+\smallskip\noindent\textbf{Step 9 --- Contradiction.}
+The chosen non-failing branch of the chase has a final quotient that
+omits \(R(b,a)\) --- contradicting the assumption that
+\(\mathcal S\) entails symmetry of \(R\) (which would require
+\(R(b,a)\) in the quotient of every non-failing branch).
+
+Therefore \(\mathcal S\) cannot entail that \(R\) is symmetric.
+\end{proof}
+
+\newpage
+\section*{Appendix A.2. Proofs for Section 2}
+
+\noindent\textbf{Statement of Theorem~\ref{lem:carm-5}.}
+Let \(\mathcal C\) be a satisfiable \textsf{CARM} schema, and let \(R\)
+be a relation symbol that is non-empty in some model of \(\mathcal C\).
+Let \(\Sigma_R\) be the set of all key dependencies
+\(X\to\operatorname{att}(R)\) entailed by \(\mathcal C\). Then, for every
+join dependency \(J\) over \(\operatorname{att}(R)\),
+\[
+\mathcal C\models J
+\quad\text{iff}\quad
+\Sigma_R\models J .
+\]
+Hence every such relation \(R\) is in 5$^{th}$ normal form.
+
+\begin{proof}[Proof of Theorem~\ref{lem:carm-5}]
+The right-to-left direction follows by transitivity of implication,
+because every dependency in \(\Sigma_R\) is entailed by
+\(\mathcal C\).
+
+For the converse, use the standard chase test for implication of a join
+dependency \(J\) over \(R\).  The chase starts from the usual JD tableau,
+whose rows are projections of one distinguished \(R\)-tuple.  The chase
+succeeds exactly when the distinguished tuple is forced by the
+constraints.  Let \(A\) be the active domain of this initial tableau.
+Since \(R\) is non-empty in some model of \(\mathcal C\), the tableau has
+a homomorphism into a model of \(\mathcal C\) sending every row to the
+same \(R\)-tuple.  Hence there is a non-failing chase branch, with cover
+choices made according to that model.
+
+We first isolate what the non-key constraints can do on such a branch.
+An inclusion dependency copies one existing projection tuple into one
+target projection occurrence and fills the remaining attributes of the
+target relation, if any, with fresh witnesses.  A cover constraint is the
+same operation with a branch choice from the target projection to one of
+the source projections.  Disjointness constraints only close branches.
+Thus every non-key step is controlled by a single projection tuple; it
+never combines two projection tuples.
+
+By induction on the non-key chase, every generated fact has a single
+origin row of the initial \(R\)-tableau.  More precisely, its old-domain
+components are copied from projection occurrences of one initial row, and
+all remaining components are fresh witnesses.  The occurrence
+non-overlap condition ensures that, within a fixed relation, old
+components copied from different projection occurrences cannot be pasted
+together into a larger all-old tuple.  The fixed ordering of projection
+occurrences also prevents a copied tuple from being permuted.  Therefore
+the non-key part cannot create the distinguished \(R\)-tuple over \(A\)
+unless that tuple was already present in the initial tableau.
+
+Suppose now that the full chase with \(\mathcal C\) succeeds.  Since the
+non-key stage cannot by itself create the distinguished tuple, success is
+due to equality-generating key steps.  Consider the equivalence relation
+that these key steps induce on the variables of the initial
+\(R\)-tableau.  A key can affect such variables only through generated
+facts whose old-domain part is a projection occurrence.  By
+key/occurrence compatibility, that occurrence is, relative to the key of
+its relation, either equal to the key, properly contained in the key, or
+disjoint from it.  In the disjoint case the key determinant contains no
+old component from the occurrence.  In the proper-containment case the
+determinant contains at least one additional component that was fresh
+when the fact was generated.  Before the first merge of two distinct
+old-domain classes, such a fresh component has either no old trace or a
+single old trace already copied into it by earlier key steps.  Agreement
+on the larger determinant therefore cannot be the first cause of a merge
+between two distinct old-domain classes.  The only case that can force a
+new equality among initial \(R\)-variables is the case in which the
+copied occurrence is itself a key determinant.
+
+Transported back along the single-origin chain to the initial
+\(R\)-tableau, that last case is exactly a key implication over \(R\):
+the standard two-row chase test with the corresponding determinant on
+\(R\) forces equality of the whole two tuples.  Hence the induced
+equality on the initial \(R\)-tableau is generated by key dependencies on
+\(R\) entailed by \(\mathcal C\), all of which are included in
+\(\Sigma_R\).  Chasing the JD tableau with \(\Sigma_R\) therefore
+produces the same quotient on the initial variables and also forces the
+distinguished tuple.  By soundness and completeness of the chase for
+join-dependency implication, \(\Sigma_R\models J\).
+\end{proof}
+
+\newpage
+\section*{Appendix A.3. Proofs for Section 3}
+
+\noindent\textbf{Statement of Theorem~\ref{thm:kgerzero-to-carm-oids}.}
+Let $\mathcal S$ be a KG-ER$_0$ schema.  Then
+$\mathcal S$ can be translated in linear time into a \textsf{CARM}
+schema $\mathcal C_{\mathcal S}$ over the same OID and value domains.
+The models of $\mathcal S$ and the models of $\mathcal C_{\mathcal S}$
+are in bijection, up to the definitional expansion/reduct of the
+relations introduced for \textsc{Id} constraints.
+
+\begin{proof}[Proof of Theorem~\ref{thm:kgerzero-to-carm-oids}]
+\emph{Step 1: compile identities.}
+For each identity constraint
+\[
+  \iota=\textsc{Id}(E\ (P_1.i_1,\ldots,P_m.i_m))   
+\]
+introduce a fresh relation symbol
+$I_\iota(C,A_1,\ldots,A_m)$, where $C$ has type $E$ and
+$A_j$ has type $\tau(P_j,i_j)$.  Thus the typing inclusions include
+$I_\iota.C\subseteq E$ and
+$I_\iota.A_j\subseteq\tau(P_j,i_j)$.  Replace the binary identifying
+relationships by the definitional views
+\[
+  P'_j=\pi_{C,A_j} I_\iota \qquad (1\leq j\leq m),
+\]
+with the inverse renaming of the roles of $P_j$.  Add to $I_\iota$ the two
+keys
+\[
+  C\to A_1\cdots A_m,
+  \qquad
+  A_1\cdots A_m\to C,
+\]
+and the inclusion $E\subseteq I_\iota.C$.  Any remaining occurrence of an
+identifying $P_j$ is translated through the same definitional view.
+This does not discard information from $P_j$: after the role renaming,
+if $(c,a)\in P'_j$, then typing gives $c\in E$; the inclusion
+$E\subseteq P.1$ gives a tuple of
+$P=P'_1\bowtie\cdots\bowtie P'_m$ with first component $c$; and the key
+$P.1\to P.2\cdots P.(m+1)$ forces its $(j+1)$-st component to be $a$.
+Hence $P'_j=\pi_{C,A_j}I_\iota$ in every legal instance.
+
+\emph{Step 2: translate the remaining constraints.}
+Keep all non-identifying relationship predicates, entity types, and
+value types.  A type declaration $R(T_1,\ldots,T_n)$ gives unary
+inclusions $R.i\subseteq T_i$.  A mandatory participation constraint
+becomes a unary inclusion.  A relationship key remains the corresponding
+relational key.  If such a constraint mentions an identifying
+relationship $P_j$, first replace $P_j$ by
+$\pi_{C,A_j}I_\iota$; unary inclusions become unary inclusions over
+$C$ or $A_j$, and keys of the binary view become keys of $I_\iota$
+using $C\to A_1\cdots A_m$.  \textsc{IsA} becomes unary inclusion, and
+\textsc{Cover} and \textsc{Disjoint} are copied over the same inclusion
+sources.
+
+\emph{Step 3: verify the \textsf{CARM} conditions.}
+All inclusion dependencies produced in Step~2 are unary, so their sources
+and targets are either identical or disjoint from other such occurrences;
+with respect to keys, a unary occurrence is either contained in a key or
+disjoint from it.  The new identity relation $I_\iota$ has only keys.  
+Moreover, the join dependency
+\[
+  I_\iota=\pi_{C,A_1}I_\iota\bowtie\cdots\bowtie\pi_{C,A_m}I_\iota
+\]
+is implied by the key $C\to A_1\cdots A_m$: tuples agreeing on $C$ must
+agree on all attributes.  Hence the identity relation is in 5$^{th}$
+normal form.  From the KG-ER$_0$ definitions, the remaining relation
+schemas have no join dependencies other than those implied by their
+declared keys.  Thus
+$\mathcal C_{\mathcal S}$ is a \textsf{CARM} schema.
+
+\emph{Step 4: prove losslessness.}
+Let $M$ be a model of $\mathcal S$.  Define $\Phi(M)$ by keeping all
+non-identifying predicates unchanged and by interpreting each new
+$I_\iota$ as the join relation occurring in the semantics of the
+corresponding \textsc{Id} constraint.  The two displayed keys and the inclusion
+$E\subseteq I_\iota.C$ hold by the \textsc{Id} constraint, so $\Phi(M)$ is a
+model of $\mathcal C_{\mathcal S}$.
+
+Conversely, let $N$ be a model of $\mathcal C_{\mathcal S}$.  Define
+$\Psi(N)$ by keeping the old predicates and reconstructing every
+identifying binary relationship as the corresponding projection of
+$I_\iota$.  The key $C\to A_1\cdots A_m$ implies
+$I_\iota=\bowtie_j\pi_{C,A_j}I_\iota$, and the key
+$A_1\cdots A_m\to C$ gives the identifying direction of
+\textsc{Id}.  Hence $\Psi(N)$ satisfies the original KG-ER$_0$
+constraints.  By construction $\Psi(\Phi(M))=M$, and
+$\Phi(\Psi(N))=N$ after expanding or reducing the definitional views.
+No OID or value is changed, and the construction scans the schema once;
+therefore the translation is linear and lossless.
+\end{proof}
+
+\noindent\textbf{Statement of Theorem~\ref{thm:kgerzero-to-carm-no-oids}.}
+Let $\mathcal S$ be an identity resolving KG-ER$_0$ schema.  
+Then $\mathcal S$ can be transformed into an OID-free \textsf{CARM}
+schema $\mathcal C^\circ_{\mathcal S}$ over value domains only.  The
+models of $\mathcal S$ and the models of
+$\mathcal C^\circ_{\mathcal S}$ are in bijection up to renaming of OIDs
+and definitional expansion/reduct of the fixed identifier relationships.
+Once the identities $\iota_K$ have been fixed, the transformation is
+linear in the size of the schema.
+
+\begin{proof}[Proof of Theorem~\ref{thm:kgerzero-to-carm-no-oids}]
+\emph{Step 1: choose canonical value codes for OIDs.}
+Let \(H_{\mathcal S}\) be the Hasse diagram of entity types; its roots
+are the \emph{kinds}.  For each
+root $K$ of \(H_{\mathcal S}\), fix one value identity entailed by
+$\mathcal S$:
+\[
+  \iota_K=\textsc{Id}
+  (K\ (P^K_1.i^K_1,\ldots,P^K_{m_K}.i^K_{m_K})).
+\]
+For a root $K$, write
+\[
+  \mathbf A_K=(A^K_1,\ldots,A^K_{m_K})
+  \qquad\text{with}\qquad
+  \operatorname{dom}(A^K_j)=\tau(P^K_j,i^K_j).
+\]
+In every model $M$ of $\mathcal S$, the fixed identity $\iota_K$ defines
+a map
+\[
+  \lambda^M_K(o)=(a_1,\ldots,a_{m_K})
+\]
+where $(o,a_j)$ belongs to the $j$-th identifying relationship, after
+the harmless role renaming used in the semantics of \textsc{Id}.  The
+dependency $K\subseteq P.1$ makes $\lambda^M_K$ total on $K^M$,
+$P.1\to P.2\cdots P.(m_K+1)$ makes it functional, and
+$P.2\cdots P.(m_K+1)\to P.1$ makes it injective.  Since different roots
+are disjoint, the pair $(K,\lambda^M_K(o))$ is a canonical replacement
+for the OID $o$.
+
+\emph{Step 2: replace each OID position by the code of its kind.}
+If $E$ is below the root $K$, replace the unary entity relation $E$ by
+an OID-free relation $E^\circ(\mathbf A_E)$, where $\mathbf A_E$ is a
+fresh copy of $\mathbf A_K$, and declare $\mathbf A_E$ to be a key.  For
+each relationship $R$, replace every entity-typed role $R.i$ whose type
+lies below $K$ by a fresh copy $\mathbf A_{R,i}$ of $\mathbf A_K$; leave
+value-typed roles unchanged.  The fixed root identifier relationships
+need not be base relations: they are definitional projections of
+$K^\circ$.  Any other constraint mentioning one of them is translated
+through that projection.
+
+\emph{Step 3: translate constraints.}
+A key of $R$ is translated by replacing each entity role occurring in it
+by the whole corresponding identifier block.  A typing inclusion
+$R.i\subseteq E$ becomes
+$\mathbf A_{R,i}\subseteq\mathbf A_E$ when $R.i$ is entity-typed, and
+remains unary when $R.i$ is value-typed.  A mandatory participation
+$E\subseteq R.i$ becomes
+$\mathbf A_E\subseteq\mathbf A_{R,i}$.  If
+$E_1,\ldots,E_n$ are below the same root, then \textsc{IsA},
+\textsc{Cover}, and \textsc{Disjoint} constraints are copied over the
+corresponding identifier blocks.  The remaining \textsc{Id} constraints
+are translated by the same replacement; their two identifying
+dependencies become keys of the translated identity relation.
+
+\emph{Step 4: check that the result is \textsf{CARM}.}
+Every source or target of an inclusion dependency is either a whole
+identifier block or a single value attribute.  Identifier blocks are
+freshly copied and ordered, so two such occurrences are either equal by
+construction or disjoint.  With respect to keys, each occurrence is
+either a key, a subset of a translated key, or disjoint from all keys.
+Covering and disjointness constraints are still over sources of
+inclusions with common targets.  Finally, the replacement of an OID
+attribute by its whole identifier block is a bijective recoding of legal
+tuples, with the block treated uniformly in every translated key and
+dependency.  A join dependency of a translated relation therefore
+corresponds, by collapsing each identifier block back to its OID, to a
+join dependency of the original relation; since the original dependency
+is key-implied, so is the translated one.  No declared dependency splits
+an identifier block into proper subblocks.  Thus
+$\mathcal C^\circ_{\mathcal S}$ is a \textsf{CARM} schema and has no
+OID-valued attributes.
+
+\emph{Step 5: prove losslessness.}
+Given a model $M$ of $\mathcal S$, define $M^\circ$ by replacing every
+OID $o$ of kind $K$ by $\lambda^M_K(o)$ in all entity and relationship
+relations, and by interpreting the translated constraints as in
+Steps~2--3.  Injectivity of $\lambda^M_K$ preserves keys, while the
+definition of $M^\circ$ preserves inclusions, covers, and disjointness.
+
+Conversely, given a model $N$ of $\mathcal C^\circ_{\mathcal S}$,
+construct a KG-ER$_0$ model $N^{-}$ as follows.  For every root $K$ and
+every tuple $\mathbf a\in (K^\circ)^N$, introduce the canonical OID
+$(K,\mathbf a)$.  If $E$ lies below $K$, put $(K,\mathbf a)$ in
+$E^{N^{-}}$ exactly when $\mathbf a\in (E^\circ)^N$.  Reconstruct every
+relationship by replacing each identifier block $\mathbf a$ of kind $K$
+by the OID $(K,\mathbf a)$ and by leaving all value components
+unchanged.  For each fixed root identity $\iota_K$, reconstruct the
+identifier relationships by projecting $\mathbf a$ to its components.
+The translated constraints ensure that all reconstructed tuples are
+well typed and satisfy the original keys, mandatory participations,
+identity constraints, inclusions, covers, and disjointness constraints.
+
+For every $M$, the instance $(M^\circ)^{-}$ is isomorphic to $M$ by the
+OID renaming $o\mapsto(K,\lambda^M_K(o))$.  For every $N$,
+$(N^{-})^\circ=N$ by construction.  Hence the transformation is
+lossless, up to OID renaming and the stated definitional views.
+\end{proof}
+
+\noindent\textbf{Statement of Theorem~\ref{thm:carm-to-kgerzero}.}
+Let $\mathcal C$ be a \textsf{CARM} schema without OID domains.  Assume
+that the inclusion, covering, and disjoint constraints of $\mathcal C$
+are given by their forest presentation: the nodes are ordered
+source/target projection occurrences and the edges are the inclusion
+dependencies between them.  Then $\mathcal C$ can be transformed into a
+KG-ER$_0$ schema $\mathcal K_{\mathcal C}$ such that the instances of
+$\mathcal C$ are in bijection, up to renaming of the introduced OIDs,
+with the instances of $\mathcal K_{\mathcal C}$.  In particular, the
+transformation is lossless.
+
+\begin{proof}[Proof of Theorem~\ref{thm:carm-to-kgerzero}]
+Write a node of the forest presentation as
+$\beta=(R;A_1,\ldots,A_m)$, where $R$ is a relation symbol of
+$\mathcal C$ and $A_1,\ldots,A_m$ is the ordered source or target
+projection represented by that node.  Equal occurrences are identified.
+The \textsf{CARM} non-overlap condition ensures that, for each fixed
+relation $R$, two such occurrences are either equal or disjoint, so they
+can be replaced independently.
+
+\emph{Schema construction.}
+For every node $\beta$ introduce an entity type $E_\beta$.  If
+$\gamma$ is the parent of $\beta$ in the forest, i.e.,
+$\beta\subseteq\gamma$ is an inclusion dependency of $\mathcal C$, add
+\[
+  \textsc{IsA}((E_\beta)\ E_\gamma).
+\]
+Covering and disjointness constraints over sources
+$\beta_1,\ldots,\beta_n$ with common target $\gamma$ become
+\[
+  \textsc{Cover}((E_{\beta_1},\ldots,E_{\beta_n})\ E_\gamma),
+  \qquad
+  \textsc{Disjoint}((E_{\beta_1},\ldots,E_{\beta_n})\ E_\gamma).
+\]
+
+For each root $B=(R;A_1,\ldots,A_m)$ of the forest, introduce binary
+relationship types
+\[
+  I^B_j(E_B,V^B_j) \qquad (1\leq j\leq m),
+\]
+where $V^B_j$ is the value type corresponding to the domain of
+attribute $A_j$.  Add the identity constraint
+\[
+  \textsc{Id}(E_B\ (I^B_1.2,\ldots,I^B_m.2)).
+\]
+All entity types below $B$ use this root identity, since they are
+subtypes of $E_B$.
+
+For each relation $R$ of $\mathcal C$, form a relationship type
+$R^\dagger$ as follows.  Each forest node
+$\beta=(R;A_1,\ldots,A_m)$ is replaced by one entity-typed role
+$e_\beta$ of type $E_\beta$; attributes of $R$ not belonging to any
+forest node are kept as value-typed roles.  Add the mandatory
+participation constraint
+\[
+  \textsc{Mand}(E_\beta,R^\dagger.e_\beta)
+\]
+for every such occurrence $\beta$.  Hence $E_\beta$ is exactly the
+projection of $R^\dagger$ on the role $e_\beta$.
+
+Keys are translated structurally.  If $K$ is a key of $R$, replace in
+$K$ every whole occurrence $\beta=(R;A_1,\ldots,A_m)$ contained in $K$
+by the role $e_\beta$, and keep all remaining value attributes.  The
+\textsf{CARM} key-overlap condition ensures that no key cuts through a
+forest occurrence.  Add the resulting \textsc{Key} constraint on
+$R^\dagger$.
+
+\emph{From \textsf{CARM} instances to KG-ER$_0$ instances.}
+Let $M$ be a model of $\mathcal C$.  For every root $B$ and every tuple
+\[
+  \mathbf a=(a_1,\ldots,a_m)
+\]
+occurring in the projection represented by $B$, introduce the canonical
+OID $(B,\mathbf a)$.  For a node $\beta$ below $B$, put
+$(B,\mathbf a)$ in $E_\beta$ exactly when $\mathbf a$ occurs in the
+projection represented by $\beta$.  This satisfies the translated
+\textsc{IsA}, \textsc{Cover}, and \textsc{Disjoint} constraints because
+the corresponding projection inclusions, covers, and disjointness
+constraints hold in $M$.
+
+Populate the root identifier relationships by
+$((B,\mathbf a),a_j)\in I^B_j$ for every root tuple $\mathbf a$ and
+every $j$.  Finally, for each tuple $t\in R^M$, put in
+$(R^\dagger)^{\Phi(M)}$ the tuple obtained by replacing each occurrence
+block $t[A_1,\ldots,A_m]$ belonging to a node $\beta$ below root $B$ by
+the OID $(B,t[A_1,\ldots,A_m])$, and by leaving all other value
+components unchanged.  Mandatory participation holds by construction.
+The translated keys hold because equality of canonical OIDs is exactly
+equality of the corresponding source or target tuples, and the original
+keys hold in $M$.
+
+\emph{From KG-ER$_0$ instances to \textsf{CARM} instances.}
+Let $N$ be a model of the constructed KG-ER$_0$ schema.  For an OID
+$o\in E_B^N$ at a root $B$, the identity constraint for $E_B$ gives a
+unique value tuple
+\[
+  \lambda_B^N(o)=(a_1,\ldots,a_m)
+\]
+with $(o,a_j)\in (I^B_j)^N$ for all $j$; the reverse key of the identity
+constraint makes this tuple injective in $o$.  For a node $\beta$ below
+$B$, use the same tuple $\lambda_B^N(o)$ for every $o\in E_\beta^N$.
+
+Define a \textsf{CARM} instance $\Psi(N)$ by replacing, in every tuple
+of every $(R^\dagger)^N$, each entity role $e_\beta$ containing an OID
+$o$ below root $B$ by the tuple $\lambda_B^N(o)$, and by leaving all
+value roles unchanged.
+
+The instance $\Psi(N)$ satisfies the constraints of $\mathcal C$.  For
+an inclusion $\beta\subseteq\gamma$, if $\mathbf a$ occurs in the
+$\beta$-projection of $\Psi(N)$, then some OID $o$ with
+$\lambda_B^N(o)=\mathbf a$ occurs in role $e_\beta$; hence
+$o\in E_\beta^N$.  The translated \textsc{IsA} constraint gives
+$o\in E_\gamma^N$, and mandatory participation of $E_\gamma$ gives a
+tuple of the target relationship containing the same OID $o$, whose
+identifier tuple is again $\mathbf a$.  Thus $\mathbf a$ occurs in the
+target projection.  The same argument with translated \textsc{Cover}
+proves covering.  For disjointness, if the same tuple occurred in two
+disjoint source projections, injectivity of the root identity would make
+the two witnessing OIDs equal, contradicting the translated
+\textsc{Disjoint} constraint.
+
+Keys are preserved as well.  If two tuples of a reconstructed relation
+agree on a key of $\mathcal C$, then their corresponding KG tuples agree
+on the translated key: for an entity role this follows from injectivity
+of the root identity, which turns equality of identifier tuples into
+equality of OIDs.  The translated \textsc{Key} constraint on
+$R^\dagger$ therefore makes the KG tuples equal, and the reconstructed
+CARM tuples are equal.
+
+\emph{Comparison of the two maps.}
+For every CARM model $M$, $\Psi(\Phi(M))=M$ by construction.  Conversely,
+for every KG-ER$_0$ model $N$, $\Phi(\Psi(N))$ is isomorphic to $N$ via
+the OID map
+\[
+  o\mapsto (B,\lambda_B^N(o))
+\]
+for OIDs below root $B$.  This map is injective by the root identity and
+surjective because mandatory participation makes every entity OID occur
+in its representative relationship role.  It preserves all translated
+relationship tuples and all root identifier relationships.  Hence the
+two schemas have the same models up to renaming of introduced OIDs, and
+the transformation is lossless.
+\end{proof}
+
+\newpage
+\section*{Appendix A.4. Proofs for Section 4}
+
+\noindent\textbf{Statement of Theorem~\ref{thm:gcarm-to-carm}.}
+Let $\mathcal G$ be a \textsf{gCARM} schema. By
+Theorem~\ref{thm:fdmvd}, the lossless and dependency-preserving part of
+such a decomposition exists whenever the FD/MVD constraints of $R$ have
+an extended conflict-free cover.  Then $\mathcal G$ can be transformed
+into a \textsf{CARM} schema $\mathcal C_{\mathcal G}$ whose instances
+are in bijection with the instances of $\mathcal G$.
+
+\begin{proof}[Proof of Theorem~\ref{thm:gcarm-to-carm}]
+%For each relation $R(U)$ of $\mathcal G$, replace $R$ by the component
+%relations $R^1(U^1),\ldots,R^k(U^k)$ of the chosen decomposition
+%$\Delta_R$.  The keys of each component are the keys representing the
+%dependencies projected on that component.  Add the
+%projection-preservation inclusions belonging to the decomposition.
+%Finally, translate every original inclusion, covering, and disjointness
+%constraint as follows: if an ordered occurrence $X$ of $R$ occurs in such
+%a constraint, interpret it as the projection $X$ of the representative
+%component $R^{\operatorname{rep}_R(X)}$.
+%
+%The resulting schema is a \textsf{CARM} schema.  Each component relation
+%is in 5$^{th}$ normal form by the chosen decomposition, and its remaining
+%dependencies are represented as keys.  The only non-key dependencies are
+%the projection-preservation inclusions and the translations of the
+%original inclusions.  By \textsf{CARM}-admissibility, their sources and
+%targets satisfy the key-overlap, occurrence-overlap, and lexicographic
+%ordering conditions required by \textsf{CARM}; covering and disjointness
+%constraints are still over sources of inclusions with common targets.
+%
+%Define the instance map $\Phi$ from $\mathcal G$ to
+%$\mathcal C_{\mathcal G}$ by projection:
+%\[
+%  (R^a)^{\Phi(I)}=\pi_{U^a}(R^I)
+%  \qquad
+%  \text{for every }R\text{ and every }R^a\in\Delta_R .
+%\]
+%Since each $\Delta_R$ is dependency-preserving, the component keys hold.
+%The projection-preservation inclusions hold by construction, and the
+%translated inclusion, covering, and disjointness constraints hold because
+%they are evaluated on projections of the same original relations.
+%
+%Conversely, define $\Psi$ from $\mathcal C_{\mathcal G}$ to
+%$\mathcal G$ by natural join:
+%\[
+%  R^{\Psi(J)}=(R^1)^J\bowtie\cdots\bowtie (R^k)^J .
+%\]
+%The lossless part of $\Delta_R$ gives
+%$R^I=\bowtie_a\pi_{U^a}(R^I)$ for every legal $\mathcal G$-instance
+%$I$, hence $\Psi(\Phi(I))=I$.  In the other direction,
+%\textsf{CARM}-admissibility gives
+%\[
+%  \pi_{U^a}\bigl((R^1)^J\bowtie\cdots\bowtie (R^k)^J\bigr)=(R^a)^J
+%  \qquad (1\leq a\leq k),
+%\]
+%so $\Phi(\Psi(J))=J$.  Moreover, every original inclusion, covering, and
+%disjointness constraint holds in $\Psi(J)$ because its chosen
+%representative projection in $\Phi(\Psi(J))$ is exactly the component
+%projection already constrained in $J$.  Thus $\Phi$ and $\Psi$ are
+%inverse bijections on legal instances, which proves losslessness.
+\end{proof}
+
+\noindent\textbf{Statement of Theorem~\ref{thm:carm-to-gcarm}.}
+Every \textsf{CARM} schema $\mathcal C$ can be viewed as a
+\textsf{gCARM} schema $\mathcal G_{\mathcal C}$ over the same relation
+symbols and domains.  The two schemas have exactly the same instances;
+hence the transformation is lossless.
+
+\begin{proof}[Proof of Theorem~\ref{thm:carm-to-gcarm}]
+%Keep all relation symbols, keys, inclusion dependencies, covering
+%constraints, and disjointness constraints of $\mathcal C$.  For each
+%relation $R(U)$, let $D_R$ contain the FD $K\to U$ for every declared key
+%$K$ of $R$.  In addition, for every ordered source or target occurrence
+%$X$ of an inclusion, covering, or disjointness constraint on $R$, add the
+%trivial FD $X\to X$.
+%
+%These added trivial dependencies do not change the legal instances.
+%They only make the \textsf{gCARM} syntactic condition on inclusion
+%occurrences explicit: every source or target occurrence is now equal to
+%the source of some dependency.  The second non-overlap condition on
+%different inclusion occurrences is already one of the \textsf{CARM}
+%conditions, and the covering and disjointness constraints are copied
+%unchanged.
+%
+%It remains to check the extended conflict-free requirement.  The
+%non-trivial dependencies in each $D_R$ are keys.  If $X$ is a key source,
+%then every MVD $X\twoheadrightarrow Y$ implied by $D_R$ is also an FD
+%$X\to Y$, and so it is excluded from $\operatorname{Env}(D_R)$.  If $X$
+%is the source of one of the added trivial FDs, then $D_R$ entails no
+%genuine MVD with source $X$ beyond the trivial consequences of
+%reflexivity.  Therefore $\operatorname{Env}(D_R)=\emptyset$, which is
+%conflict-free.  Thus each $D_R$ has an extended conflict-free cover.
+%
+%The identity map on instances is therefore an isomorphism between
+%$\mathcal C$ and $\mathcal G_{\mathcal C}$, so the transformation is
+%lossless.
+\end{proof}
+
+
+\bibliographystyle{named}
+\bibliography{KG-ER-zero.bib}
+\end{document}

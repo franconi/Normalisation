@@ -1,0 +1,51 @@
+database schema registry:
+relation T: ssn empid name hdate phone email dept manager
+nullable: empid hdate dept manager
+
+empid -N-> dept
+dept <-N-> manager
+empid <-N-> hdate
+
+ssn -> name
+ssn ->> phone
+ssn ->> email
+ssn -> empid
+empid -> ssn
+empid -> hdate
+empid -> dept
+dept -> manager
+manager => empid
+
+
+database schema source:
+relation T: ssn name dept manager
+ssn -> name
+ssn -> dept
+dept -> manager
+manager => ssn
+
+relation T: ssn name phone email dept manager
+ssn -> name dept
+ssn ->> phone
+ssn ->> email
+dept -> manager
+manager => ssn
+
+
+relation legal-company: companyID SSN director surname postcode city email
+nullable: companyID SSN director surname
+
+companyID ->N<- SSN
+companyID <-N-> director
+SSN <-N-> surname
+companyID -> director postcode 
+SSN -> surname postcode
+postcode -> city
+companyID ->> email
+SSN ->> email
+
+relation T: K1 K2 A B C
+nullable: K1 K2
+K1 -> A
+K2 -> A
+K1 ->N<- K2

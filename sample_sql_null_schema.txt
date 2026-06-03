@@ -1,0 +1,5 @@
+attributes: A B C D E
+nullable: B C D
+B -N-> C
+B <-N-> C
+B ->N<- D

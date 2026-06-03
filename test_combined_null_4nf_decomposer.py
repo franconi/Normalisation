@@ -413,6 +413,45 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
             output["inclusion_dependencies"],
         )
 
+    def test_parser_accepts_typed_inclusion_dependencies(self):
+        parsed = schema_from_text(
+            """
+            database schema Sales:
+            relation Orders: orderID orderCustomerID orderRegion
+            relation Customers: customerID region
+            orderCustomerID == customerID
+            orderRegion o=> region
+            orderID x=> orderCustomerID
+            """
+        )
+
+        self.assertEqual(
+            ["equality", "covering", "disjoint"],
+            [dep.kind for dep in parsed.database_schemas[0].inclusion_dependencies],
+        )
+
+        output = analyze_combined_schema(parsed)
+        self.assertEqual(
+            [
+                {
+                    "lhs": ["orderCustomerID"],
+                    "rhs": ["customerID"],
+                    "text": "orderCustomerID == customerID",
+                },
+                {
+                    "lhs": ["orderRegion"],
+                    "rhs": ["region"],
+                    "text": "orderRegion o=> region",
+                },
+                {
+                    "lhs": ["orderID"],
+                    "rhs": ["orderCustomerID"],
+                    "text": "orderID x=> orderCustomerID",
+                },
+            ],
+            output["inclusion_dependencies"],
+        )
+
     def test_inclusion_dependency_sides_must_have_same_arity(self):
         with self.assertRaisesRegex(ValueError, "same number of attributes"):
             schema_from_text(

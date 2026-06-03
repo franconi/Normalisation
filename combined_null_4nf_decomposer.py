@@ -91,6 +91,7 @@ class Attribute:
 class InclusionDependency:
     lhs: AttrSeq
     rhs: AttrSeq
+    kind: str = "inclusion"
 
 
 @dataclass(frozen=True, init=False)
@@ -726,7 +727,17 @@ def sql_null_dependency_text(dep: SQLNullDependency) -> str:
 
 
 def inclusion_dependency_text(dep: InclusionDependency) -> str:
-    return f"{fmt_sequence(dep.lhs)} => {fmt_sequence(dep.rhs)}"
+    return f"{fmt_sequence(dep.lhs)} {inclusion_dependency_symbol(dep.kind)} {fmt_sequence(dep.rhs)}"
+
+
+def inclusion_dependency_symbol(kind: str) -> str:
+    if kind == "equality":
+        return "=="
+    if kind == "covering":
+        return "o=>"
+    if kind == "disjoint":
+        return "x=>"
+    return "=>"
 
 
 def relation_contains_dependency(relation: InputRelation, dep_attrs: AttrSet) -> bool:
@@ -1771,12 +1782,19 @@ def schema_from_text(text: str) -> CombinedSchema:
                 current.sql_null_dependencies.append(dep)
             continue
 
-        inclusion_match = re.match(r"^(.*?)\s*=>\s*(.*?)$", line)
+        inclusion_match = re.match(r"^(.*?)\s*(==|o=>|x=>|=>)\s*(.*?)$", line)
         if inclusion_match:
             if not known_attributes:
                 raise ValueError(
                     f"line {line_no}: attributes or relation line must appear before dependencies"
                 )
+            symbol = inclusion_match.group(2)
+            kind = {
+                "==": "equality",
+                "o=>": "covering",
+                "x=>": "disjoint",
+                "=>": "inclusion",
+            }[symbol]
             lhs = parse_attribute_sequence_with_known(
                 inclusion_match.group(1),
                 known_attributes,
@@ -1784,12 +1802,12 @@ def schema_from_text(text: str) -> CombinedSchema:
                 allow_empty=False,
             )
             rhs = parse_attribute_sequence_with_known(
-                inclusion_match.group(2),
+                inclusion_match.group(3),
                 known_attributes,
                 line_no,
                 allow_empty=False,
             )
-            current.inclusion_dependencies.append(InclusionDependency(lhs, rhs))
+            current.inclusion_dependencies.append(InclusionDependency(lhs, rhs, kind))
             continue
 
         fd_mvd_match = re.match(r"^(.*?)\s*(->>|↠|-->>|->)\s*(.*?)$", line)
@@ -1938,10 +1956,18 @@ def parse_json_inclusion_dependencies(data: dict[str, object]) -> tuple[Inclusio
         data.get("inclusions", data.get("inds", [])),
     )
     for dep in raw_dependencies:
+        symbol = str(dep.get("symbol", dep.get("operator", ""))).strip()
+        kind = str(dep.get("kind", "")).strip() or {
+            "==": "equality",
+            "o=>": "covering",
+            "x=>": "disjoint",
+            "=>": "inclusion",
+        }.get(symbol, "inclusion")
         dependencies.append(
             InclusionDependency(
                 parse_json_attr_sequence(dep["lhs"]),
                 parse_json_attr_sequence(dep["rhs"]),
+                kind,
             )
         )
     return tuple(dependencies)

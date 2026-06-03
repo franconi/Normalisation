@@ -49,3 +49,7 @@ nullable: K1 K2
 K1 -> A
 K2 -> A
 K1 ->N<- K2
+
+relation R: K A B C
+nullable: C
+K -> att(R)

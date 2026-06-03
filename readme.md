@@ -62,6 +62,9 @@ Dependency syntax:
 - jointly SQL-null dependencies: `A <-N-> B`
 - alternative SQL-null dependencies: `A ->N<- B`
 - inclusion dependencies: `A B => C D`
+- equality inclusion dependencies: `A B == C D`
+- covering inclusion dependencies: `A B o=> C D`
+- disjoint inclusion dependencies: `A B x=> C D`
 
 Join dependencies (FDs and MVDs) and SQL-null dependencies must be contained in
 one relation. For inclusion dependencies, the left side must be contained in one

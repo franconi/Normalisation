@@ -532,10 +532,13 @@ SSN ->> email`;
       return `<div class="nested-box">${renderDependencyList(displayDependenciesForRelation(relationName, attributes, dependencies))}</div>`;
     }
 
-    function renderEmptyCrossRelationBox() {
+    function renderCrossRelationBox(dependencies = []) {
+      const content = dependencies && dependencies.length
+        ? renderDependencyList(dependencies)
+        : '<div class="dep-list-empty">no dependency</div>';
       return `<div class="box full">
         <h3>Cross-relation Inclusion Dependency</h3>
-        <div class="dep-list-empty">no dependency</div>
+        ${content}
       </div>`;
     }
 
@@ -555,11 +558,31 @@ SSN ->> email`;
     }
 
     function inclusionText(dep) {
-      return dep.text || `${fmtSet(dep.lhs || [])} => ${fmtSet(dep.rhs || [])}`;
+      return dep.text || `${fmtSet(dep.lhs || [])} ${inclusionSymbol(dep)} ${fmtSet(dep.rhs || [])}`;
+    }
+
+    function inclusionSymbol(dep) {
+      const split = dep && dep.text ? splitDependencyText(dep.text) : null;
+      if (split && ['==', 'o=>', 'x=>', '=>'].includes(split.symbol)) return split.symbol;
+      if (dep && dep.symbol) return dep.symbol;
+      if (dep && dep.kind === 'equality') return '==';
+      if (dep && dep.kind === 'covering') return 'o=>';
+      if (dep && dep.kind === 'disjoint') return 'x=>';
+      return '=>';
     }
 
     function isLocalInclusionForAttributes(dep, attributes) {
       return isSubset([...(dep.lhs || []), ...(dep.rhs || [])], attrSet(attributes || []));
+    }
+
+    function isLocalInclusionForAnyRelation(dep, relations) {
+      return (relations || []).some(relation => isLocalInclusionForAttributes(dep, relation.attributes || []));
+    }
+
+    function crossInclusionTextsForRelations(inclusions, relations) {
+      return (inclusions || [])
+        .filter(dep => !isLocalInclusionForAnyRelation(dep, relations || []))
+        .map(inclusionText);
     }
 
     function localInclusionTextsForItem(data, item) {
@@ -582,10 +605,23 @@ SSN ->> email`;
           inclusion_dependencies: (database.inclusion_dependencies || []).filter(isLocalToSchema),
         };
       });
-      displayData.per_input_relation = (displayData.per_input_relation || []).map(item => ({
-        ...item,
-        applicable_inclusion_dependencies: localInclusionTextsForItem(data, item),
-      }));
+      displayData.per_input_relation = (displayData.per_input_relation || []).map(item => {
+        const applicableInclusions = localInclusionTextsForItem(data, item);
+        return {
+          ...item,
+          applicable_fds: displayDependenciesForRelation(item.input_relation, item.attributes || [], item.applicable_fds || []),
+          applicable_inclusion_dependencies: applicableInclusions,
+          per_relation_4nf: (item.per_relation_4nf || []).map(perRelation => ({
+            ...perRelation,
+            applicable_fds: displayDependenciesForRelation(
+              perRelation.sql_null_relation_name || '',
+              perRelation.renamed_sql_null_relation || perRelation.sql_null_relation || [],
+              perRelation.applicable_fds || []
+            ),
+            steps: displayStepsForRelation(perRelation.steps || [], perRelation.sql_null_relation_name || ''),
+          })),
+        };
+      });
       return displayData;
     }
 
@@ -601,39 +637,145 @@ SSN ->> email`;
 
       const parsedFds = functionalDependencies.map(item => item.dep);
       const keyGroups = new Map();
+      const fdGroups = new Map();
       for (const item of functionalDependencies) {
-        if (!isSubset(attributes, closure(item.dep.lhs, parsedFds))) continue;
-
         const key = canonicalAttributes(item.dep.lhs);
-        if (!keyGroups.has(key)) {
-          keyGroups.set(key, {
+        if (isSubset(attributes, closure(item.dep.lhs, parsedFds))) {
+          if (!keyGroups.has(key)) {
+            keyGroups.set(key, {
+              lhs: item.dep.lhs,
+              indexes: new Set(),
+            });
+          }
+          keyGroups.get(key).indexes.add(item.index);
+          continue;
+        }
+
+        if (!fdGroups.has(key)) {
+          fdGroups.set(key, {
             lhs: item.dep.lhs,
+            rhs: [],
             indexes: new Set(),
           });
         }
-        keyGroups.get(key).indexes.add(item.index);
+        const group = fdGroups.get(key);
+        group.indexes.add(item.index);
+        for (const attr of item.dep.rhs) {
+          if (!group.rhs.includes(attr)) group.rhs.push(attr);
+        }
       }
-      if (!keyGroups.size) return items;
+      for (const [key, group] of Array.from(fdGroups.entries())) {
+        if (group.indexes.size < 2) fdGroups.delete(key);
+      }
+      if (!keyGroups.size && !fdGroups.size) return items;
 
-      const indexToKey = new Map();
+      const indexToGroup = new Map();
       for (const [key, group] of keyGroups.entries()) {
-        for (const index of group.indexes) indexToKey.set(index, key);
+        for (const index of group.indexes) indexToGroup.set(index, {kind: 'key', key});
+      }
+      for (const [key, group] of fdGroups.entries()) {
+        for (const index of group.indexes) indexToGroup.set(index, {kind: 'fd', key});
       }
 
       const displayed = [];
-      const emittedKeys = new Set();
+      const emittedGroups = new Set();
       for (let index = 0; index < items.length; index += 1) {
-        const key = indexToKey.get(index);
-        if (!key) {
+        const groupRef = indexToGroup.get(index);
+        if (!groupRef) {
           displayed.push(items[index]);
           continue;
         }
-        if (emittedKeys.has(key)) continue;
+        const emittedKey = `${groupRef.kind}\u0002${groupRef.key}`;
+        if (emittedGroups.has(emittedKey)) continue;
 
-        const group = keyGroups.get(key);
-        const name = relationName || relationNameFor(attributes);
-        displayed.push(`${fmtSet(group.lhs)} -> att(${name})`);
-        emittedKeys.add(key);
+        if (groupRef.kind === 'key') {
+          const group = keyGroups.get(groupRef.key);
+          const name = relationName || relationNameFor(attributes);
+          displayed.push(`${fmtSet(group.lhs)} -> att(${name})`);
+        } else {
+          const group = fdGroups.get(groupRef.key);
+          displayed.push(`${fmtSet(group.lhs)} -> ${fmtSet(group.rhs)}`);
+        }
+        emittedGroups.add(emittedKey);
+      }
+      return displayed;
+    }
+
+    function stepDependencyText(step) {
+      const symbol = step.dependency_kind === 'MVD' ? '->>' : '->';
+      return `${fmtSet(step.dependency_lhs || [])} ${symbol} ${fmtSet(step.dependency_rhs || [])}`;
+    }
+
+    function displayStepsForRelation(steps, relationName = '') {
+      const items = steps || [];
+      if (!items.length) return items;
+
+      const fdSteps = items
+        .map((step, index) => ({step, index}))
+        .filter(item => item.step.dependency_kind === 'FD');
+      if (!fdSteps.length) return items;
+
+      const byRelation = new Map();
+      for (const item of fdSteps) {
+        const relationKey = canonicalAttributes(item.step.relation || []);
+        if (!byRelation.has(relationKey)) byRelation.set(relationKey, []);
+        byRelation.get(relationKey).push(item);
+      }
+
+      const groups = new Map();
+      const indexToGroup = new Map();
+      for (const relationItems of byRelation.values()) {
+        const relation = relationItems[0].step.relation || [];
+        const fds = relationItems.map(item => ({
+          lhs: item.step.dependency_lhs || [],
+          rhs: item.step.dependency_rhs || [],
+        }));
+        for (const item of relationItems) {
+          const lhs = item.step.dependency_lhs || [];
+          if (!isSubset(relation, closure(lhs, fds))) continue;
+
+          const groupKey = `${canonicalAttributes(relation)}\u0002${canonicalAttributes(lhs)}`;
+          if (!groups.has(groupKey)) {
+            groups.set(groupKey, {
+              relation,
+              lhs,
+              indexes: new Set(),
+              result: [],
+              template: item.step,
+            });
+          }
+          const group = groups.get(groupKey);
+          group.indexes.add(item.index);
+          for (const resultRelation of item.step.result || []) group.result.push(resultRelation);
+        }
+      }
+      if (!groups.size) return items;
+
+      for (const [groupKey, group] of groups.entries()) {
+        for (const index of group.indexes) indexToGroup.set(index, groupKey);
+      }
+
+      const displayed = [];
+      const emittedGroups = new Set();
+      for (let index = 0; index < items.length; index += 1) {
+        const groupKey = indexToGroup.get(index);
+        if (!groupKey) {
+          displayed.push(items[index]);
+          continue;
+        }
+        if (emittedGroups.has(groupKey)) continue;
+
+        const group = groups.get(groupKey);
+        const name = relationName || fmtSet(group.relation);
+        const resultKeys = unique(group.result.map(canonicalAttributes));
+        displayed.push({
+          ...group.template,
+          dependency: `${fmtSet(group.lhs)} -> att(${name})`,
+          dependency_lhs: group.lhs,
+          dependency_rhs: group.relation,
+          result: resultKeys.map(key => group.result.find(relation => canonicalAttributes(relation) === key) || []),
+        });
+        emittedGroups.add(groupKey);
       }
       return displayed;
     }
@@ -641,6 +783,7 @@ SSN ->> email`;
     function renderSource(data) {
       const relations = getSourceRelations(data);
       const perInput = new Map((data.per_input_relation || []).map(item => [item.input_relation, item]));
+      const crossInclusions = crossInclusionTextsForRelations(data.inclusion_dependencies || [], relations);
       const relationBoxes = relations.map(relation => {
         const item = perInput.get(relation.name) || {};
         const relationAttrs = attrSet(relation.attributes || []);
@@ -659,7 +802,7 @@ SSN ->> email`;
           ${renderDependencyBox(dependencies, relation.name, relation.attributes || [])}
         </div>`;
       }).join('');
-      return `<div class="grid relation-grid">${relationBoxes}${renderEmptyCrossRelationBox()}</div>`;
+      return `<div class="grid relation-grid">${relationBoxes}${renderCrossRelationBox(crossInclusions)}</div>`;
     }
 
     function canonicalAttributes(attributes) {
@@ -672,7 +815,7 @@ SSN ->> email`;
     }
 
     function splitDependencyText(text) {
-      for (const symbol of ['<-N->', '->N<-', '-N->', '->>', '->', '=>']) {
+      for (const symbol of ['<-N->', '->N<-', '-N->', '->>', 'o=>', 'x=>', '==', '->', '=>']) {
         const index = String(text).indexOf(symbol);
         if (index !== -1) {
           return {
@@ -715,6 +858,29 @@ SSN ->> email`;
       };
     }
 
+    function targetAttributePrefixGroups(targetRelations) {
+      const byPrefix = new Map();
+      for (const relation of targetRelations || []) {
+        for (const attribute of relation.attributes || []) {
+          const match = String(attribute).match(/^(.*)#(\d+)$/);
+          if (!match || !match[1]) continue;
+          const prefix = match[1];
+          if (!byPrefix.has(prefix)) byPrefix.set(prefix, new Map());
+          byPrefix.get(prefix).set(Number(match[2]), attribute);
+        }
+      }
+
+      return Array.from(byPrefix.entries())
+        .map(([prefix, attributesByNumber]) => ({
+          prefix,
+          attributes: Array.from(attributesByNumber.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(entry => entry[1]),
+        }))
+        .filter(group => group.attributes.length >= 2)
+        .sort((a, b) => a.prefix.localeCompare(b.prefix, undefined, {numeric: true}));
+    }
+
     function buildTargetRelations(data) {
       const byKey = new Map();
       for (const attributes of data.final_decomposition || []) {
@@ -745,14 +911,39 @@ SSN ->> email`;
           }
         }
       }
-      return Array.from(byKey.values()).sort((a, b) => {
+      const relations = Array.from(byKey.values());
+      for (const group of targetAttributePrefixGroups(relations)) {
+        addTargetKeyRelation(relations, group.prefix);
+      }
+      for (const relation of Array.from(relations)) {
+        const baseDependencies = targetBaseRelationDependencies(relation, data);
+        for (const inclusion of targetKeyInclusionsForRelation(relation, baseDependencies)) {
+          const split = splitDependencyText(inclusion);
+          if (!split || split.symbol !== 'x=>') continue;
+          for (const attr of parseAttributeSide(split.rhs, relation.attributes || [])) {
+            addTargetKeyRelation(relations, attr);
+          }
+        }
+      }
+      return relations.sort((a, b) => {
         const numberCompare = relationPostfixNumber(a.attributes) - relationPostfixNumber(b.attributes);
         if (numberCompare !== 0) return numberCompare;
         return a.name.localeCompare(b.name, undefined, {numeric: true});
       });
     }
 
-    function targetRelationDependencies(target, data) {
+    function addTargetKeyRelation(relations, attribute) {
+      if (!attribute) return;
+      const name = `${attribute}_K`;
+      if (relations.some(relation => relation.name === name)) return;
+      relations.push({
+        name,
+        attributes: [attribute],
+        origins: [],
+      });
+    }
+
+    function targetBaseRelationDependencies(target, data) {
       const targetAttrs = attrSet(target.attributes);
       const dependencies = [];
       for (const origin of target.origins || []) {
@@ -767,11 +958,71 @@ SSN ->> email`;
           if (!isSubset([...(dep.lhs || []), ...(dep.rhs || [])], origin.sourceAttributes)) continue;
           const mapped = mappedInclusion(dep, origin);
           if (isSubset([...mapped.lhs, ...mapped.rhs], targetAttrs)) {
-            dependencies.push(`${fmtSet(mapped.lhs)} => ${fmtSet(mapped.rhs)}`);
+            dependencies.push(`${fmtSet(mapped.lhs)} ${inclusionSymbol(dep)} ${fmtSet(mapped.rhs)}`);
           }
         }
       }
       return unique(dependencies);
+    }
+
+    function targetKeyInclusionsForRelation(target, dependencies) {
+      const targetAttrs = attrSet(target.attributes);
+      const functionalDependencies = unique(dependencies)
+        .map(dep => functionalDependencyParts(dep, target.attributes))
+        .filter(dep => dep && isSubset([...dep.lhs, ...dep.rhs], targetAttrs));
+      if (!functionalDependencies.length) return [];
+
+      const inclusions = [];
+      const emitted = new Set();
+      for (const dep of functionalDependencies) {
+        if (!isSubset(target.attributes, closure(dep.lhs, functionalDependencies))) continue;
+
+        const keyAttrs = dep.lhs;
+        const dependentAttrs = (target.attributes || []).filter(attr => !keyAttrs.includes(attr));
+        const pairs = [];
+        if (keyAttrs.length === 1) {
+          for (const attr of dependentAttrs) pairs.push({lhs: [attr], rhs: keyAttrs});
+        } else if (dependentAttrs.length === keyAttrs.length) {
+          pairs.push({lhs: dependentAttrs, rhs: keyAttrs});
+        }
+
+        for (const pair of pairs) {
+          const base = `${canonicalAttributes(pair.lhs)}\u0002${canonicalAttributes(pair.rhs)}`;
+          if (emitted.has(base)) continue;
+          inclusions.push(`${fmtSet(pair.lhs)} x=> ${fmtSet(pair.rhs)}`);
+          inclusions.push(`${fmtSet(pair.lhs)} o=> ${fmtSet(pair.rhs)}`);
+          emitted.add(base);
+        }
+      }
+      return inclusions;
+    }
+
+    function targetRelationDependencies(target, data) {
+      const baseDependencies = targetBaseRelationDependencies(target, data);
+      return unique([
+        ...baseDependencies,
+        ...targetKeyInclusionsForRelation(target, baseDependencies),
+      ]);
+    }
+
+    function targetGeneratedPrefixInclusions(targetRelations) {
+      const dependencies = [];
+      for (const group of targetAttributePrefixGroups(targetRelations)) {
+        dependencies.push(`${fmtSet(group.attributes)} x=> ${fmtSet([group.prefix])}`);
+        dependencies.push(`${fmtSet(group.attributes)} o=> ${fmtSet([group.prefix])}`);
+      }
+      return dependencies;
+    }
+
+    function targetCrossInclusionTexts(data, targetRelations) {
+      const sourceCrossInclusions = crossInclusionTextsForRelations(
+        data.inclusion_dependencies || [],
+        getSourceRelations(data)
+      );
+      return unique([
+        ...sourceCrossInclusions,
+        ...targetGeneratedPrefixInclusions(targetRelations),
+      ]);
     }
 
     function functionalDependencyParts(dependency, knownAttributes) {
@@ -817,6 +1068,7 @@ SSN ->> email`;
 
     function renderTarget(data) {
       const targetRelations = buildTargetRelations(data);
+      const crossInclusions = targetCrossInclusionTexts(data, targetRelations);
       const relationBoxes = targetRelations.map(target => {
         const dependencies = targetRelationDependencies(target, data);
         return `<div class="box relation-box">
@@ -825,7 +1077,7 @@ SSN ->> email`;
           ${renderDependencyBox(dependencies, target.name, target.attributes)}
         </div>`;
       }).join('');
-      return `<div class="grid relation-grid">${relationBoxes}${renderEmptyCrossRelationBox()}</div>`;
+      return `<div class="grid relation-grid">${relationBoxes}${renderCrossRelationBox(crossInclusions)}</div>`;
     }
 
     function renderRemoved(removed) {
@@ -836,11 +1088,13 @@ SSN ->> email`;
       }).join('')}</ul>`;
     }
 
-    function renderSteps(steps) {
-      if (!steps || !steps.length) return '<div class="chips"><span class="chip">already NF</span></div>';
-      return steps.map(step => {
+    function renderSteps(steps, relationName = '') {
+      const displaySteps = displayStepsForRelation(steps || [], relationName);
+      if (!displaySteps.length) return '<div class="chips"><span class="chip">already NF</span></div>';
+      return displaySteps.map(step => {
         const resultText = (step.result || []).map(fmtSet).join(' + ');
-        return `<div class="step">${escapeHtml(fmtSet(step.relation))} by ${escapeHtml(step.dependency_kind)} ${escapeHtml(step.dependency)} => ${escapeHtml(resultText)}</div>`;
+        const dependency = step.dependency || stepDependencyText(step);
+        return `<div class="step">${escapeHtml(fmtSet(step.relation))} by ${escapeHtml(step.dependency_kind)} ${escapeHtml(dependency)} => ${escapeHtml(resultText)}</div>`;
       }).join('');
     }
 
@@ -860,7 +1114,7 @@ SSN ->> email`;
             <div class="box"><h3>Applicable FDs</h3><div class="chips">${chips(displayedFds, 'dep')}</div></div>
             <div class="box"><h3>Applicable MVDs</h3><div class="chips">${chips(mvds, 'dep')}</div></div>
             <div class="box full"><h3>NF Decomposition</h3><div class="chips">${chips(decomp)}</div></div>
-            <div class="box full"><h3>Steps</h3>${renderSteps(item.steps)}</div>
+            <div class="box full"><h3>Steps</h3>${renderSteps(item.steps, item.sql_null_relation_name || '')}</div>
           </div>
         </div>`;
       }).join('');

@@ -832,6 +832,34 @@ def database_join_dependencies(
     )
 
 
+def extended_conflict_free_report(schema: CombinedSchema) -> dict[str, object]:
+    failures: list[dict[str, object]] = []
+
+    for database_schema in schema.database_schemas:
+        dependencies = database_join_dependencies(database_schema)
+        analyzer = DependencyAnalyzer(
+            DependencySchema(
+                database_schema.attributes,
+                tuple(dep for dep in dependencies if isinstance(dep, FD)),
+                tuple(dep for dep in dependencies if isinstance(dep, MVD)),
+            )
+        )
+        ok, errors = analyzer.extended_conflict_free()
+        if ok:
+            continue
+        failures.append(
+            {
+                "database_schema": database_schema.name,
+                "errors": errors,
+            }
+        )
+
+    return {
+        "extended_conflict_free": not failures,
+        "failures": failures,
+    }
+
+
 def containing_relation_names_for_sequence(
     input_relations: Iterable[InputRelation],
     attrs: AttrSeq,
@@ -1174,6 +1202,13 @@ def analyze_input_relation(
 
 def analyze_combined_schema(schema: CombinedSchema) -> dict[str, object]:
     validate_combined_schema(schema)
+    conflict_free = extended_conflict_free_report(schema)
+    if not conflict_free["extended_conflict_free"]:
+        return {
+            "extended_conflict_free": False,
+            "message": "Source database schema is not extended conflict-free",
+            "extended_conflict_free_failures": conflict_free["failures"],
+        }
 
     per_input_relation = [
         analyze_input_relation(schema, database_schema, relation)

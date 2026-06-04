@@ -51,6 +51,27 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
             output["CNF"]["cross_relation_inclusion_dependencies"],
         )
 
+    def test_non_extended_conflict_free_schema_stops_before_normalising(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: A B C
+                AB -> C
+                C -> B
+                """
+            )
+        )
+
+        self.assertFalse(output["extended_conflict_free"])
+        self.assertEqual(
+            "Source database schema is not extended conflict-free",
+            output["message"],
+        )
+        self.assertIn("extended_conflict_free_failures", output)
+        self.assertNotIn("per_input_relation", output)
+        self.assertNotIn("6NF", output)
+        self.assertNotIn("CNF", output)
+
     def test_sql_null_decomposition_is_computed_before_4nf(self):
         output = analyze_combined_schema(
             schema_from_text(

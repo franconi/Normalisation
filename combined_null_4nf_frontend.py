@@ -1403,6 +1403,11 @@ SSN ->> email`;
     }
 
     function render(data) {
+      if (data.extended_conflict_free === false) {
+        result.innerHTML = `<div class="box full"><h3>Result</h3><p>${escapeHtml(data.message || 'Source database schema is not extended conflict-free')}</p></div>`;
+        return;
+      }
+
       if (data.errors) {
         result.innerHTML = `<div class="box full"><h3>Input Error</h3><ul>${
           data.errors.map(error => `<li>${escapeHtml(error)}</li>`).join('')
@@ -1564,7 +1569,9 @@ SSN ->> email`;
         });
         const data = await response.json();
         activeData = data;
-        cnfState = data.errors ? null : cloneCnf(data.CNF || data['6NF']);
+        cnfState = data.errors || data.extended_conflict_free === false
+          ? null
+          : cloneCnf(data.CNF || data['6NF']);
         render(data);
         statusEl.textContent = response.ok ? 'Done' : 'Check input';
       } catch (error) {
@@ -1618,7 +1625,11 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
             text = str(payload.get("text", ""))
             output = analyze_combined_schema(schema_from_text(text))
-            status = HTTPStatus.OK
+            status = (
+                HTTPStatus.UNPROCESSABLE_ENTITY
+                if output.get("extended_conflict_free") is False
+                else HTTPStatus.OK
+            )
         except Exception as exc:
             output = {"errors": [str(exc)]}
             status = HTTPStatus.BAD_REQUEST

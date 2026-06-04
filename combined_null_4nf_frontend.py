@@ -119,6 +119,9 @@ HTML = r"""<!doctype html>
     }
     button.primary:hover { background: var(--accent-hover); }
     button:hover, .file-label:hover { border-color: #a9b8c0; }
+    button:disabled {
+      cursor: not-allowed;
+    }
     input[type="file"] { display: none; }
     textarea {
       display: block;
@@ -407,6 +410,9 @@ HTML = r"""<!doctype html>
       background: #fff1f0;
       border-color: #f0b8b2;
     }
+    .export-button {
+      min-width: 104px;
+    }
     .nested-box {
       margin-top: 10px;
       border: 1px solid var(--line);
@@ -515,20 +521,26 @@ HTML = r"""<!doctype html>
             <button id="runButton" class="primary" type="button">Normalise</button>
           </div>
         </div>
-        <textarea id="input" spellcheck="false">database schema registry:
-relation legal-company: companyID SSN director surname postcode city email
+        <textarea id="input" spellcheck="false">database schema Registry:
 
-nullable: companyID SSN director surname
+relation T: ssn empid name hdate phone email dept manager
 
-companyID ->N<- SSN
-companyID <-N-> director
-SSN <-N-> surname
+nullable: empid hdate dept manager
 
-companyID -> director postcode
-SSN -> surname postcode
-postcode -> city
-companyID ->> email
-SSN ->> email</textarea>
+empid -N-> dept
+dept &lt;-N-&gt; manager
+empid &lt;-N-&gt; hdate
+
+ssn -&gt; name
+ssn -&gt;&gt; phone
+ssn -&gt;&gt; email
+ssn -&gt; empid
+empid -&gt; ssn
+empid -&gt; hdate
+empid -&gt; dept
+dept -&gt; manager
+
+manager =&gt; empid</textarea>
       </section>
 
       <section>
@@ -550,20 +562,26 @@ SSN ->> email</textarea>
     let cnfState = null;
     const sectionCollapseState = {};
 
-    const sample = `database schema registry:
-relation legal-company: companyID SSN director surname postcode city email
+    const sample = `database schema Registry:
 
-nullable: companyID SSN director surname
+relation T: ssn empid name hdate phone email dept manager
 
-companyID ->N<- SSN
-companyID <-N-> director
-SSN <-N-> surname
+nullable: empid hdate dept manager
 
-companyID -> director postcode
-SSN -> surname postcode
-postcode -> city
-companyID ->> email
-SSN ->> email`;
+empid -N-> dept
+dept <-N-> manager
+empid <-N-> hdate
+
+ssn -> name
+ssn ->> phone
+ssn ->> email
+ssn -> empid
+empid -> ssn
+empid -> hdate
+empid -> dept
+dept -> manager
+
+manager => empid`;
 
     function escapeHtml(value) {
       return String(value)
@@ -747,6 +765,11 @@ SSN ->> email`;
     function renderCnfSaveButton() {
       const state = cnfSaveButtonState({includePending: false});
       return `<button class="primary cnf-save-button" type="button" data-cnf-save="true" data-cnf-save-state="${escapeHtml(state.key)}" title="${escapeHtml(state.title)}"${state.applicable ? '' : ' disabled'}>${escapeHtml(state.label)}</button>`;
+    }
+
+    function renderSixNfExportButton() {
+      const available = Boolean(activeData && activeData['6NF']);
+      return `<button class="export-button" type="button" data-six-nf-export="true" title="Export Sixth Normal Form as JSON"${available ? '' : ' disabled'}>Export 6NF</button>`;
     }
 
     function updateCnfSaveButtonState() {
@@ -1424,7 +1447,11 @@ SSN ->> email`;
       }, 0);
       if (!cnfState) cnfState = cloneCnf(data.CNF || data['6NF']);
       let html = renderSection('Source', renderSource(data));
-      html += renderSection('Sixth Normal Form', renderTarget(data));
+      html += renderSection(
+        'Sixth Normal Form',
+        renderTarget(data),
+        renderSixNfExportButton()
+      );
       html += renderSection(
         'Conceptual',
         renderConceptual(data),
@@ -1545,6 +1572,30 @@ SSN ->> email`;
       saveCnf();
     }
 
+    function exportSixNf() {
+      if (!activeData || !activeData['6NF']) return;
+      const body = `${JSON.stringify(activeData['6NF'], null, 2)}\n`;
+      const blob = new Blob([body], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'sixth-normal-form.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      statusEl.textContent = '6NF exported';
+    }
+
+    function handleSixNfExport(event) {
+      const button = event.target && event.target.closest
+        ? event.target.closest('[data-six-nf-export]')
+        : null;
+      if (!button) return;
+      if (button.disabled) return;
+      exportSixNf();
+    }
+
     function handleSectionToggle(event) {
       const button = event.target && event.target.closest
         ? event.target.closest('[data-section-toggle]')
@@ -1584,6 +1635,7 @@ SSN ->> email`;
 
     result.addEventListener('click', handleSectionToggle);
     result.addEventListener('click', handleCnfSave);
+    result.addEventListener('click', handleSixNfExport);
     result.addEventListener('input', handleCnfInput);
     result.addEventListener('focusout', handleCnfChange);
     result.addEventListener('keydown', handleCnfKeydown);

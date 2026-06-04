@@ -72,6 +72,23 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
         self.assertNotIn("6NF", output)
         self.assertNotIn("CNF", output)
 
+    def test_sql_null_decomposition_is_checked_before_extended_conflict_free(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: A B C
+                nullable: B C
+                B ->N<- C
+                AB -> C
+                C -> B
+                """
+            )
+        )
+
+        self.assertIn("per_input_relation", output)
+        self.assertIn("6NF", output)
+        self.assertIn("CNF", output)
+
     def test_sql_null_decomposition_is_computed_before_4nf(self):
         output = analyze_combined_schema(
             schema_from_text(

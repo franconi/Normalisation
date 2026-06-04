@@ -836,23 +836,61 @@ def extended_conflict_free_report(schema: CombinedSchema) -> dict[str, object]:
     failures: list[dict[str, object]] = []
 
     for database_schema in schema.database_schemas:
-        dependencies = database_join_dependencies(database_schema)
-        analyzer = DependencyAnalyzer(
-            DependencySchema(
-                database_schema.attributes,
-                tuple(dep for dep in dependencies if isinstance(dep, FD)),
-                tuple(dep for dep in dependencies if isinstance(dep, MVD)),
+        for input_relation in database_schema.relations:
+            local_sql_deps = tuple(
+                dep
+                for dep in database_schema.sql_null_dependencies
+                if relation_nullable_contains_dependency(
+                    input_relation,
+                    sql_null_dependency_attrs(dep),
+                )
             )
-        )
-        ok, errors = analyzer.extended_conflict_free()
-        if ok:
-            continue
-        failures.append(
-            {
-                "database_schema": database_schema.name,
-                "errors": errors,
-            }
-        )
+            local_sql_deps = unique_tuple(
+                itertools.chain(local_sql_deps, input_relation.sql_null_dependencies)
+            )
+            local_fds = unique_tuple(
+                itertools.chain(
+                    applicable_fds(input_relation.attributes, database_schema.fds),
+                    input_relation.fds,
+                )
+            )
+            local_mvds = unique_tuple(
+                itertools.chain(
+                    applicable_mvds(input_relation.attributes, database_schema.mvds),
+                    input_relation.mvds,
+                )
+            )
+
+            sql_schema = SQLNullSchema(
+                input_relation.attributes,
+                input_relation.nullable,
+                local_sql_deps,
+                input_relation.name,
+            )
+            sql_relations, _ = named_sql_null_decomposition(sql_schema)
+
+            for sql_relation in sql_relations:
+                relation_fds = applicable_fds(sql_relation.attributes, local_fds)
+                relation_mvds = applicable_mvds(sql_relation.attributes, local_mvds)
+                analyzer = DependencyAnalyzer(
+                    DependencySchema(
+                        sql_relation.attributes,
+                        tuple(relation_fds),
+                        tuple(relation_mvds),
+                    )
+                )
+                ok, errors = analyzer.extended_conflict_free()
+                if ok:
+                    continue
+                failures.append(
+                    {
+                        "database_schema": database_schema.name,
+                        "input_relation": input_relation.name,
+                        "sql_null_relation": sql_relation.name,
+                        "attributes": sorted(sql_relation.attributes),
+                        "errors": errors,
+                    }
+                )
 
     return {
         "extended_conflict_free": not failures,

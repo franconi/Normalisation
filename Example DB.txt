@@ -1,5 +1,7 @@
-database schema registry:
+database schema Registry:
+
 relation T: ssn empid name hdate phone email dept manager
+
 nullable: empid hdate dept manager
 
 empid -N-> dept
@@ -14,6 +16,7 @@ empid -> ssn
 empid -> hdate
 empid -> dept
 dept -> manager
+
 manager => empid
 
 

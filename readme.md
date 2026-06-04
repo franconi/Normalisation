@@ -1,5 +1,7 @@
 # The Relational Database Normaliser
 
+This tool takes as input a database schema with SQL nullable attributes, and with key, functional, multivalued, inclusion, disjoint, and covering dependencies, and outputs, whenever formally possible, its sixth normal form.
+
 #### Declarations:
 
 - database schema declaration: `database schema DBNAME`

@@ -33,6 +33,24 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
         self.assertEqual(1, len(parsed.fds))
         self.assertEqual(1, len(parsed.mvds))
 
+    def test_cnf_starts_as_copy_of_six_nf(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: A B C
+                A -> B
+                A -> C
+                """
+            )
+        )
+
+        self.assertEqual("CNF", output["CNF"]["name"])
+        self.assertEqual(output["6NF"]["relations"], output["CNF"]["relations"])
+        self.assertEqual(
+            output["6NF"]["cross_relation_inclusion_dependencies"],
+            output["CNF"]["cross_relation_inclusion_dependencies"],
+        )
+
     def test_sql_null_decomposition_is_computed_before_4nf(self):
         output = analyze_combined_schema(
             schema_from_text(

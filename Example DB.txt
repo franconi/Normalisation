@@ -50,6 +50,11 @@ K1 -> A
 K2 -> A
 K1 ->N<- K2
 
-relation R: K A B C
-nullable: C
+relation R: K A B
+nullable: B
 K -> att(R)
+
+relation: A B C
+A B -> C
+C -> A
+

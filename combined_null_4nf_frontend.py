@@ -181,16 +181,58 @@ HTML = r"""<!doctype html>
       padding-bottom: 0;
       border-bottom: 0;
     }
-    .result-section-title {
+    .result-section-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin: 0 0 12px;
+    }
+    .result-section-title {
+      flex: 1 1 auto;
+      min-width: 0;
+      margin: 0;
+    }
+    .result-section-actions {
+      flex: 0 0 auto;
+    }
+    .section-toggle {
+      appearance: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      min-height: 34px;
+      margin: 0;
       padding: 7px 10px;
+      border: 0;
       border-left: 4px solid var(--accent);
       background: var(--soft);
       border-radius: 6px;
       color: var(--ink);
       font-size: 15px;
       font-weight: 720;
+      text-transform: none;
+      cursor: pointer;
     }
+    .section-toggle:hover {
+      background: #e4eeee;
+      border-color: var(--accent);
+    }
+    .section-toggle::after {
+      content: "";
+      width: 0;
+      height: 0;
+      flex: 0 0 auto;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid currentColor;
+      transition: transform 120ms ease;
+    }
+    .section-toggle[aria-expanded="false"]::after {
+      transform: rotate(-90deg);
+    }
+    .result-section-body[hidden] { display: none; }
     .relation-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -310,6 +352,61 @@ HTML = r"""<!doctype html>
       font-weight: 760;
       line-height: 1;
     }
+    .cnf-relation-input,
+    .cnf-attribute-input {
+      width: 100%;
+      max-width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      font: 13px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: 0;
+      outline: none;
+    }
+    .cnf-relation-input {
+      min-height: 30px;
+      margin: 0 0 8px;
+      padding: 5px 7px;
+      font-weight: 680;
+    }
+    .cnf-attribute-input {
+      width: min(180px, 100%);
+      min-height: 26px;
+      padding: 3px 7px;
+      background: var(--soft);
+    }
+    .cnf-attribute-input.key-attribute {
+      background: #e4f7e8;
+      border-color: #a8d8b1;
+    }
+    .cnf-relation-input:focus,
+    .cnf-attribute-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(15, 111, 115, 0.14);
+    }
+    .cnf-save-button {
+      min-width: 92px;
+    }
+    button.cnf-save-button:disabled {
+      background: #eef2f3;
+      border-color: var(--line);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+    button.cnf-save-button:disabled:hover {
+      background: #eef2f3;
+      border-color: var(--line);
+    }
+    button.cnf-save-button[data-cnf-save-state="invalid"]:disabled {
+      background: #fff1f0;
+      border-color: #f0b8b2;
+      color: #9f3328;
+    }
+    button.cnf-save-button[data-cnf-save-state="invalid"]:disabled:hover {
+      background: #fff1f0;
+      border-color: #f0b8b2;
+    }
     .nested-box {
       margin-top: 10px;
       border: 1px solid var(--line);
@@ -411,7 +508,7 @@ HTML = r"""<!doctype html>
         <div class="panel-head">
           <h2>Input</h2>
           <div class="controls">
-            <label class="file-label" for="fileInput">Open TXT</label>
+            <label class="file-label" for="fileInput">Import Schema</label>
             <input id="fileInput" type="file" accept=".txt,text/plain">
             <button id="sampleButton" type="button">Sample</button>
             <button id="clearButton" type="button">Clear</button>
@@ -449,6 +546,9 @@ SSN ->> email</textarea>
     const input = document.getElementById('input');
     const result = document.getElementById('result');
     const statusEl = document.getElementById('status');
+    let activeData = null;
+    let cnfState = null;
+    const sectionCollapseState = {};
 
     const sample = `database schema registry:
 relation legal-company: companyID SSN director surname postcode city email
@@ -488,6 +588,57 @@ SSN ->> email`;
       return Array.from(new Set((items || []).filter(item => item !== undefined && item !== null && String(item).length)));
     }
 
+    function normalizedDependencyText(value) {
+      return String(value).trim().replace(/\s+/g, ' ').replace(/\s*,\s*/g, ', ');
+    }
+
+    function dependencyKey(item) {
+      const split = splitDependencyText(item);
+      if (!split) return normalizedDependencyText(item);
+      return `${normalizedDependencyText(split.lhs)} ${split.symbol} ${normalizedDependencyText(split.rhs)}`;
+    }
+
+    function uniqueDependencies(items) {
+      const out = [];
+      const seen = new Set();
+      for (const item of items || []) {
+        if (item === undefined || item === null || !String(item).trim().length) continue;
+        const key = dependencyKey(item);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(item);
+      }
+      return out;
+    }
+
+    function dependencyChips(items) {
+      return chips(uniqueDependencies(items), 'dep');
+    }
+
+    function uniqueInclusionDependencies(items) {
+      const out = [];
+      const seen = new Set();
+      for (const item of items || []) {
+        const key = dependencyKey(typeof item === 'string' ? item : inclusionText(item));
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(item);
+      }
+      return out;
+    }
+
+    function dedupeDependencyFields(item) {
+      if (!item) return item;
+      const out = {...item};
+      for (const key of ['sql_null_dependencies', 'fds', 'mvds', 'applicable_sql_null_dependencies', 'applicable_mvds']) {
+        if (Array.isArray(out[key])) out[key] = uniqueDependencies(out[key]);
+      }
+      if (Array.isArray(out.inclusion_dependencies)) {
+        out.inclusion_dependencies = uniqueInclusionDependencies(out.inclusion_dependencies);
+      }
+      return out;
+    }
+
     function attrSet(values) {
       return new Set(values || []);
     }
@@ -501,16 +652,6 @@ SSN ->> email`;
       return [...attributes].sort((a, b) => a.localeCompare(b, undefined, {numeric: true})).join('_');
     }
 
-    function attrPostfixNumber(attribute) {
-      const match = String(attribute).match(/#(\d+)$/);
-      return match ? Number(match[1]) : 0;
-    }
-
-    function relationPostfixNumber(attributes) {
-      const numbers = (attributes || []).map(attrPostfixNumber);
-      return numbers.length ? Math.min(...numbers) : 0;
-    }
-
     function renderAttributes(attributes, nullable = [], keyAttributes = []) {
       if (!attributes || attributes.length === 0) return '<span class="dep-list-empty">none</span>';
       const nullableSet = attrSet(nullable);
@@ -522,8 +663,230 @@ SSN ->> email`;
       }).join('')}</div>`;
     }
 
+    function cloneCnf(source) {
+      const cnf = JSON.parse(JSON.stringify(source || {}));
+      return {
+        name: cnf.name || 'CNF',
+        relations: cnf.relations || [],
+        cross_relation_inclusion_dependencies: cnf.cross_relation_inclusion_dependencies || [],
+      };
+    }
+
+    function cnfSnapshot(source) {
+      const cnf = cloneCnf(source);
+      return JSON.stringify({
+        name: 'CNF',
+        relations: cnf.relations,
+        cross_relation_inclusion_dependencies: cnf.cross_relation_inclusion_dependencies,
+      });
+    }
+
+    function isCnfDirty() {
+      if (!activeData || !cnfState) return false;
+      const savedCnf = activeData.CNF || activeData['6NF'] || {};
+      return cnfSnapshot(cnfState) !== cnfSnapshot(savedCnf);
+    }
+
+    function isPendingCnfRelationRenameSavable(oldName, requestedName) {
+      const cleanName = String(requestedName || '').trim();
+      if (!cleanName || cleanName === oldName || !cnfState) return false;
+      const names = (cnfState.relations || []).map(relation => relation.name);
+      if (!names.includes(oldName)) return names.includes(cleanName);
+      return !names.some(name => name === cleanName && name !== oldName);
+    }
+
+    function isPendingCnfAttributeRenameSavable(oldAttribute, requestedName) {
+      const trimmed = String(requestedName || '').trim();
+      if (!trimmed || !cnfState) return false;
+      const oldBase = attributeParts(oldAttribute).base;
+      const newBase = newBaseForAttribute(oldAttribute, trimmed);
+      if (!newBase || newBase === oldBase) return false;
+      const attributes = allCnfAttributes(cnfState);
+      const oldBaseExists = attributes.some(attribute => attributeParts(attribute).base === oldBase);
+      if (!oldBaseExists) {
+        return attributes.some(attribute => attributeParts(attribute).base === newBase);
+      }
+      return canRenameCnfAttribute(cnfState, oldBase, newBase);
+    }
+
+    function pendingCnfInputState() {
+      let savable = false;
+      let invalid = false;
+      for (const control of result.querySelectorAll('[data-cnf-action]')) {
+        const original = control.dataset.cnfRelation || control.dataset.cnfAttribute || '';
+        const requested = String(control.value || '').trim();
+        if (requested === String(original)) continue;
+        let valid = false;
+        if (control.dataset.cnfAction === 'rename-relation') {
+          valid = isPendingCnfRelationRenameSavable(control.dataset.cnfRelation || '', requested);
+        }
+        if (control.dataset.cnfAction === 'rename-attribute') {
+          valid = isPendingCnfAttributeRenameSavable(control.dataset.cnfAttribute || '', requested);
+        }
+        savable = savable || valid;
+        invalid = invalid || !valid;
+      }
+      return {savable, invalid};
+    }
+
+    function cnfSaveButtonState(options = {}) {
+      if (!activeData || !cnfState) {
+        return {applicable: false, key: 'unavailable', label: 'Unavailable', title: 'No CNF available'};
+      }
+      const includePending = options.includePending !== false;
+      const pending = includePending ? pendingCnfInputState() : {savable: false, invalid: false};
+      if (pending.invalid) {
+        return {applicable: false, key: 'invalid', label: 'Invalid', title: 'Fix Conceptual names before saving'};
+      }
+      if (isCnfDirty() || pending.savable) {
+        return {applicable: true, key: 'dirty', label: 'Save CNF', title: 'Save Conceptual renamings into CNF'};
+      }
+      return {applicable: false, key: 'saved', label: 'Saved', title: 'No CNF changes to save'};
+    }
+
+    function renderCnfSaveButton() {
+      const state = cnfSaveButtonState({includePending: false});
+      return `<button class="primary cnf-save-button" type="button" data-cnf-save="true" data-cnf-save-state="${escapeHtml(state.key)}" title="${escapeHtml(state.title)}"${state.applicable ? '' : ' disabled'}>${escapeHtml(state.label)}</button>`;
+    }
+
+    function updateCnfSaveButtonState() {
+      const button = result.querySelector('[data-cnf-save]');
+      if (!button) return;
+      const state = cnfSaveButtonState();
+      button.disabled = !state.applicable;
+      button.textContent = state.label;
+      button.title = state.title;
+      button.dataset.cnfSaveState = state.key;
+    }
+
+    function normalFormForDisplay(form) {
+      const data = cloneCnf(form);
+      return {
+        ...data,
+        relations: (data.relations || []).map(relation => ({
+          ...relation,
+          attributes: relation.attributes || [],
+          dependencies: uniqueDependencies(relation.dependencies || []),
+        })),
+        cross_relation_inclusion_dependencies: uniqueDependencies(
+          data.cross_relation_inclusion_dependencies || []
+        ),
+      };
+    }
+
+    function regexEscape(value) {
+      return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function attributeParts(attribute) {
+      const match = String(attribute || '').match(/^(.*)#(\d+)$/);
+      if (!match) return {base: String(attribute || ''), suffix: ''};
+      return {base: match[1], suffix: `#${match[2]}`};
+    }
+
+    function renamedAttribute(attribute, oldBase, newBase) {
+      const parts = attributeParts(attribute);
+      return parts.base === oldBase ? `${newBase}${parts.suffix}` : String(attribute);
+    }
+
+    function newBaseForAttribute(oldAttribute, requestedName) {
+      const trimmed = String(requestedName || '').trim();
+      if (!trimmed) return attributeParts(oldAttribute).base;
+      return attributeParts(trimmed).base;
+    }
+
+    function allCnfAttributes(cnf) {
+      return unique((cnf.relations || []).flatMap(relation => relation.attributes || []));
+    }
+
+    function dependencySideIsRelationReference(text) {
+      return /^att\s*\(/i.test(String(text || '').trim());
+    }
+
+    function rewriteAttributeSide(text, knownAttributes, oldBase, newBase) {
+      const attrs = parseAttributeSide(text, knownAttributes);
+      if (!attrs.length) return String(text || '').trim();
+      return fmtSet(attrs.map(attribute => renamedAttribute(attribute, oldBase, newBase)));
+    }
+
+    function rewriteDependencyAttributes(text, knownAttributes, oldBase, newBase) {
+      const split = splitDependencyText(text);
+      if (!split) return String(text);
+      const lhs = rewriteAttributeSide(split.lhs, knownAttributes, oldBase, newBase);
+      const rhs = dependencySideIsRelationReference(split.rhs)
+        ? split.rhs
+        : rewriteAttributeSide(split.rhs, knownAttributes, oldBase, newBase);
+      return `${lhs} ${split.symbol} ${rhs}`;
+    }
+
+    function rewriteDependencyRelationName(text, oldName, newName) {
+      const pattern = new RegExp(`att\\(\\s*${regexEscape(oldName)}\\s*\\)`, 'g');
+      return String(text).replace(pattern, `att(${newName})`);
+    }
+
+    function canRenameCnfAttribute(cnf, oldBase, newBase) {
+      if (oldBase === newBase) return true;
+      return (cnf.relations || []).every(relation => {
+        const renamed = (relation.attributes || []).map(attribute => renamedAttribute(attribute, oldBase, newBase));
+        return new Set(renamed).size === renamed.length;
+      });
+    }
+
+    function renameCnfRelation(oldName, newName) {
+      if (!cnfState) return false;
+      const cleanName = String(newName || '').trim();
+      if (!cleanName || cleanName === oldName) return false;
+      if (!(cnfState.relations || []).some(relation => relation.name === oldName)) return false;
+      if ((cnfState.relations || []).some(relation => relation.name === cleanName && relation.name !== oldName)) {
+        statusEl.textContent = 'Relation name already exists';
+        return false;
+      }
+
+      for (const relation of cnfState.relations || []) {
+        if (relation.name === oldName) relation.name = cleanName;
+        relation.dependencies = (relation.dependencies || [])
+          .map(dep => rewriteDependencyRelationName(dep, oldName, cleanName));
+      }
+      statusEl.textContent = 'Conceptual relation renamed';
+      return true;
+    }
+
+    function renameCnfAttribute(oldAttribute, newName) {
+      if (!cnfState) return false;
+      const oldBase = attributeParts(oldAttribute).base;
+      const newBase = newBaseForAttribute(oldAttribute, newName);
+      if (!newBase || newBase === oldBase) return false;
+      if (!allCnfAttributes(cnfState).some(attribute => attributeParts(attribute).base === oldBase)) return false;
+      if (!canRenameCnfAttribute(cnfState, oldBase, newBase)) {
+        statusEl.textContent = 'Attribute name would collide';
+        return false;
+      }
+
+      const knownAttributes = allCnfAttributes(cnfState);
+      for (const relation of cnfState.relations || []) {
+        relation.attributes = (relation.attributes || [])
+          .map(attribute => renamedAttribute(attribute, oldBase, newBase));
+        relation.dependencies = (relation.dependencies || [])
+          .map(dep => rewriteDependencyAttributes(dep, knownAttributes, oldBase, newBase));
+      }
+      cnfState.cross_relation_inclusion_dependencies = (cnfState.cross_relation_inclusion_dependencies || [])
+        .map(dep => rewriteDependencyAttributes(dep, knownAttributes, oldBase, newBase));
+      statusEl.textContent = 'Conceptual attribute renamed';
+      return true;
+    }
+
+    function renderEditableAttributes(attributes, keyAttributes = []) {
+      if (!attributes || attributes.length === 0) return '<span class="dep-list-empty">none</span>';
+      const keySet = attrSet(keyAttributes);
+      return `<div class="attribute-list">${attributes.map(attribute => {
+        const cls = keySet.has(attribute) ? 'cnf-attribute-input key-attribute' : 'cnf-attribute-input';
+        const width = Math.max(6, Math.min(24, String(attribute).length + 2));
+        return `<input class="${cls}" style="width:${width}ch" value="${escapeHtml(attribute)}" data-cnf-action="rename-attribute" data-cnf-attribute="${escapeHtml(attribute)}" aria-label="Rename attribute ${escapeHtml(attribute)}">`;
+      }).join('')}</div>`;
+    }
+
     function renderDependencyList(dependencies) {
-      const items = unique(dependencies);
+      const items = uniqueDependencies(dependencies);
       if (!items.length) return '<div class="dep-list-empty">none</div>';
       return `<ul class="dep-list">${items.map(dep => `<li>${escapeHtml(dep)}</li>`).join('')}</ul>`;
     }
@@ -542,8 +905,26 @@ SSN ->> email`;
       </div>`;
     }
 
-    function renderSection(title, content) {
-      return `<div class="result-section"><h3 class="result-section-title">${escapeHtml(title)}</h3>${content}</div>`;
+    function sectionKey(title) {
+      return String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section';
+    }
+
+    function renderSection(title, content, actions = '') {
+      const key = sectionKey(title);
+      const bodyId = `${key}SectionBody`;
+      const isCollapsed = Boolean(sectionCollapseState[key]);
+      const actionHtml = actions ? `<div class="result-section-actions">${actions}</div>` : '';
+      return `<div class="result-section" data-result-section="${escapeHtml(key)}">
+        <div class="result-section-heading">
+          <h3 class="result-section-title">
+            <button class="section-toggle" type="button" data-section-toggle="${escapeHtml(key)}" aria-expanded="${String(!isCollapsed)}" aria-controls="${escapeHtml(bodyId)}">
+              <span>${escapeHtml(title)}</span>
+            </button>
+          </h3>
+          ${actionHtml}
+        </div>
+        <div id="${escapeHtml(bodyId)}" class="result-section-body"${isCollapsed ? ' hidden' : ''}>${content}</div>
+      </div>`;
     }
 
     function getSourceRelations(data) {
@@ -580,15 +961,15 @@ SSN ->> email`;
     }
 
     function crossInclusionTextsForRelations(inclusions, relations) {
-      return (inclusions || [])
+      return uniqueDependencies((inclusions || [])
         .filter(dep => !isLocalInclusionForAnyRelation(dep, relations || []))
-        .map(inclusionText);
+        .map(inclusionText));
     }
 
     function localInclusionTextsForItem(data, item) {
-      return (data.inclusion_dependencies || [])
+      return uniqueDependencies((data.inclusion_dependencies || [])
         .filter(dep => isLocalInclusionForAttributes(dep, item.attributes || []))
-        .map(inclusionText);
+        .map(inclusionText));
     }
 
     function detailsDisplayData(data) {
@@ -596,28 +977,44 @@ SSN ->> email`;
       const sourceRelations = getSourceRelations(data);
       const isLocalToSource = dep => sourceRelations.some(relation => isLocalInclusionForAttributes(dep, relation.attributes || []));
 
-      displayData.inclusion_dependencies = (displayData.inclusion_dependencies || []).filter(isLocalToSource);
+      displayData.sql_null_dependencies = uniqueDependencies(displayData.sql_null_dependencies || []);
+      displayData.fds = uniqueDependencies(displayData.fds || []);
+      displayData.mvds = uniqueDependencies(displayData.mvds || []);
+      displayData.inclusion_dependencies = uniqueInclusionDependencies(
+        (displayData.inclusion_dependencies || []).filter(isLocalToSource)
+      );
+      if (displayData['6NF']) {
+        displayData['6NF'] = normalFormForDisplay(displayData['6NF']);
+      }
+      displayData.CNF = normalFormForDisplay(cnfState || displayData.CNF || displayData['6NF']);
       displayData.database_schemas = (displayData.database_schemas || []).map(database => {
         const schemaRelations = database.relations || [];
         const isLocalToSchema = dep => schemaRelations.some(relation => isLocalInclusionForAttributes(dep, relation.attributes || []));
         return {
-          ...database,
-          inclusion_dependencies: (database.inclusion_dependencies || []).filter(isLocalToSchema),
+          ...dedupeDependencyFields(database),
+          relations: (database.relations || []).map(dedupeDependencyFields),
+          inclusion_dependencies: uniqueInclusionDependencies(
+            (database.inclusion_dependencies || []).filter(isLocalToSchema)
+          ),
         };
       });
+      displayData.input_relations = (displayData.input_relations || []).map(dedupeDependencyFields);
       displayData.per_input_relation = (displayData.per_input_relation || []).map(item => {
         const applicableInclusions = localInclusionTextsForItem(data, item);
         return {
-          ...item,
+          ...dedupeDependencyFields(item),
+          applicable_sql_null_dependencies: uniqueDependencies(item.applicable_sql_null_dependencies || []),
           applicable_fds: displayDependenciesForRelation(item.input_relation, item.attributes || [], item.applicable_fds || []),
-          applicable_inclusion_dependencies: applicableInclusions,
+          applicable_mvds: uniqueDependencies(item.applicable_mvds || []),
+          applicable_inclusion_dependencies: uniqueDependencies(applicableInclusions),
           per_relation_4nf: (item.per_relation_4nf || []).map(perRelation => ({
-            ...perRelation,
+            ...dedupeDependencyFields(perRelation),
             applicable_fds: displayDependenciesForRelation(
               perRelation.sql_null_relation_name || '',
               perRelation.renamed_sql_null_relation || perRelation.sql_null_relation || [],
               perRelation.applicable_fds || []
             ),
+            applicable_mvds: uniqueDependencies(perRelation.applicable_mvds || []),
             steps: displayStepsForRelation(perRelation.steps || [], perRelation.sql_null_relation_name || ''),
           })),
         };
@@ -626,7 +1023,7 @@ SSN ->> email`;
     }
 
     function displayDependenciesForRelation(relationName, attributes, dependencies) {
-      const items = unique(dependencies);
+      const items = uniqueDependencies(dependencies);
       if (!items.length || !attributes || !attributes.length) return items;
 
       const targetAttrs = attrSet(attributes);
@@ -698,7 +1095,7 @@ SSN ->> email`;
         }
         emittedGroups.add(emittedKey);
       }
-      return displayed;
+      return uniqueDependencies(displayed);
     }
 
     function stepDependencyText(step) {
@@ -790,7 +1187,7 @@ SSN ->> email`;
         const localInclusions = (data.inclusion_dependencies || [])
           .filter(dep => isSubset([...(dep.lhs || []), ...(dep.rhs || [])], relationAttrs))
           .map(inclusionText);
-        const dependencies = unique([
+        const dependencies = uniqueDependencies([
           ...(item.applicable_sql_null_dependencies || []),
           ...(item.applicable_fds || []),
           ...(item.applicable_mvds || []),
@@ -807,11 +1204,6 @@ SSN ->> email`;
 
     function canonicalAttributes(attributes) {
       return [...(attributes || [])].sort((a, b) => a.localeCompare(b, undefined, {numeric: true})).join('\u0001');
-    }
-
-    function renameAttributeForRelation(attribute, relationName) {
-      const match = String(relationName || '').match(/#(\d+)$/);
-      return match ? `${attribute}#${match[1]}` : attribute;
     }
 
     function splitDependencyText(text) {
@@ -840,189 +1232,6 @@ SSN ->> email`;
         return value.split(/[\s,]+/).map(token => token.trim()).filter(Boolean);
       }
       return [...value];
-    }
-
-    function dependencyAttributes(text, knownAttributes = []) {
-      const split = splitDependencyText(text);
-      if (!split) return [];
-      return [
-        ...parseAttributeSide(split.lhs, knownAttributes),
-        ...parseAttributeSide(split.rhs, knownAttributes),
-      ];
-    }
-
-    function mappedInclusion(dep, origin) {
-      return {
-        lhs: (dep.lhs || []).map(attr => renameAttributeForRelation(attr, origin.perRelation.sql_null_relation_name)),
-        rhs: (dep.rhs || []).map(attr => renameAttributeForRelation(attr, origin.perRelation.sql_null_relation_name)),
-      };
-    }
-
-    function targetAttributePrefixGroups(targetRelations) {
-      const byPrefix = new Map();
-      for (const relation of targetRelations || []) {
-        for (const attribute of relation.attributes || []) {
-          const match = String(attribute).match(/^(.*)#(\d+)$/);
-          if (!match || !match[1]) continue;
-          const prefix = match[1];
-          if (!byPrefix.has(prefix)) byPrefix.set(prefix, new Map());
-          byPrefix.get(prefix).set(Number(match[2]), attribute);
-        }
-      }
-
-      return Array.from(byPrefix.entries())
-        .map(([prefix, attributesByNumber]) => ({
-          prefix,
-          attributes: Array.from(attributesByNumber.entries())
-            .sort((a, b) => a[0] - b[0])
-            .map(entry => entry[1]),
-        }))
-        .filter(group => group.attributes.length >= 2)
-        .sort((a, b) => a.prefix.localeCompare(b.prefix, undefined, {numeric: true}));
-    }
-
-    function buildTargetRelations(data) {
-      const byKey = new Map();
-      for (const attributes of data.final_decomposition || []) {
-        const key = canonicalAttributes(attributes);
-        byKey.set(key, {
-          name: relationNameFor(attributes),
-          attributes: [...attributes].sort((a, b) => a.localeCompare(b, undefined, {numeric: true})),
-          origins: [],
-        });
-      }
-      for (const inputItem of data.per_input_relation || []) {
-        for (const perRelation of inputItem.per_relation_4nf || []) {
-          for (const attributes of perRelation.four_nf_decomposition || []) {
-            const key = canonicalAttributes(attributes);
-            if (!byKey.has(key)) {
-              byKey.set(key, {
-                name: relationNameFor(attributes),
-                attributes: [...attributes].sort((a, b) => a.localeCompare(b, undefined, {numeric: true})),
-                origins: [],
-              });
-            }
-            byKey.get(key).origins.push({
-              inputItem,
-              perRelation,
-              sourceAttributes: attrSet(inputItem.attributes || []),
-              sqlNullAttributes: attrSet(perRelation.sql_null_relation || []),
-            });
-          }
-        }
-      }
-      const relations = Array.from(byKey.values());
-      for (const group of targetAttributePrefixGroups(relations)) {
-        addTargetKeyRelation(relations, group.prefix);
-      }
-      for (const relation of Array.from(relations)) {
-        const baseDependencies = targetBaseRelationDependencies(relation, data);
-        for (const inclusion of targetKeyInclusionsForRelation(relation, baseDependencies)) {
-          const split = splitDependencyText(inclusion);
-          if (!split || split.symbol !== 'x=>') continue;
-          for (const attr of parseAttributeSide(split.rhs, relation.attributes || [])) {
-            addTargetKeyRelation(relations, attr);
-          }
-        }
-      }
-      return relations.sort((a, b) => {
-        const numberCompare = relationPostfixNumber(a.attributes) - relationPostfixNumber(b.attributes);
-        if (numberCompare !== 0) return numberCompare;
-        return a.name.localeCompare(b.name, undefined, {numeric: true});
-      });
-    }
-
-    function addTargetKeyRelation(relations, attribute) {
-      if (!attribute) return;
-      const name = `${attribute}_K`;
-      if (relations.some(relation => relation.name === name)) return;
-      relations.push({
-        name,
-        attributes: [attribute],
-        origins: [],
-      });
-    }
-
-    function targetBaseRelationDependencies(target, data) {
-      const targetAttrs = attrSet(target.attributes);
-      const dependencies = [];
-      for (const origin of target.origins || []) {
-        for (const dep of origin.perRelation.applicable_fds || []) {
-          if (isSubset(dependencyAttributes(dep, target.attributes), targetAttrs)) dependencies.push(dep);
-        }
-        for (const dep of origin.perRelation.applicable_mvds || []) {
-          const functionalText = dep.replace('->>', '->');
-          if (isSubset(dependencyAttributes(functionalText, target.attributes), targetAttrs)) dependencies.push(functionalText);
-        }
-        for (const dep of data.inclusion_dependencies || []) {
-          if (!isSubset([...(dep.lhs || []), ...(dep.rhs || [])], origin.sourceAttributes)) continue;
-          const mapped = mappedInclusion(dep, origin);
-          if (isSubset([...mapped.lhs, ...mapped.rhs], targetAttrs)) {
-            dependencies.push(`${fmtSet(mapped.lhs)} ${inclusionSymbol(dep)} ${fmtSet(mapped.rhs)}`);
-          }
-        }
-      }
-      return unique(dependencies);
-    }
-
-    function targetKeyInclusionsForRelation(target, dependencies) {
-      const targetAttrs = attrSet(target.attributes);
-      const functionalDependencies = unique(dependencies)
-        .map(dep => functionalDependencyParts(dep, target.attributes))
-        .filter(dep => dep && isSubset([...dep.lhs, ...dep.rhs], targetAttrs));
-      if (!functionalDependencies.length) return [];
-
-      const inclusions = [];
-      const emitted = new Set();
-      for (const dep of functionalDependencies) {
-        if (!isSubset(target.attributes, closure(dep.lhs, functionalDependencies))) continue;
-
-        const keyAttrs = dep.lhs;
-        const dependentAttrs = (target.attributes || []).filter(attr => !keyAttrs.includes(attr));
-        const pairs = [];
-        if (keyAttrs.length === 1) {
-          for (const attr of dependentAttrs) pairs.push({lhs: [attr], rhs: keyAttrs});
-        } else if (dependentAttrs.length === keyAttrs.length) {
-          pairs.push({lhs: dependentAttrs, rhs: keyAttrs});
-        }
-
-        for (const pair of pairs) {
-          const base = `${canonicalAttributes(pair.lhs)}\u0002${canonicalAttributes(pair.rhs)}`;
-          if (emitted.has(base)) continue;
-          inclusions.push(`${fmtSet(pair.lhs)} x=> ${fmtSet(pair.rhs)}`);
-          inclusions.push(`${fmtSet(pair.lhs)} o=> ${fmtSet(pair.rhs)}`);
-          emitted.add(base);
-        }
-      }
-      return inclusions;
-    }
-
-    function targetRelationDependencies(target, data) {
-      const baseDependencies = targetBaseRelationDependencies(target, data);
-      return unique([
-        ...baseDependencies,
-        ...targetKeyInclusionsForRelation(target, baseDependencies),
-      ]);
-    }
-
-    function targetGeneratedPrefixInclusions(targetRelations) {
-      const dependencies = [];
-      for (const group of targetAttributePrefixGroups(targetRelations)) {
-        dependencies.push(`${fmtSet(group.attributes)} x=> ${fmtSet([group.prefix])}`);
-        dependencies.push(`${fmtSet(group.attributes)} o=> ${fmtSet([group.prefix])}`);
-      }
-      return dependencies;
-    }
-
-    function targetCrossInclusionTexts(data, targetRelations) {
-      const sourceCrossInclusions = crossInclusionTextsForRelations(
-        data.inclusion_dependencies || [],
-        getSourceRelations(data)
-      );
-      return unique([
-        ...sourceCrossInclusions,
-        ...targetGeneratedPrefixInclusions(targetRelations),
-      ]);
     }
 
     function functionalDependencyParts(dependency, knownAttributes) {
@@ -1067,13 +1276,29 @@ SSN ->> email`;
     }
 
     function renderTarget(data) {
-      const targetRelations = buildTargetRelations(data);
-      const crossInclusions = targetCrossInclusionTexts(data, targetRelations);
-      const relationBoxes = targetRelations.map(target => {
-        const dependencies = targetRelationDependencies(target, data);
+      const sixNF = normalFormForDisplay(data['6NF'] || {relations: [], cross_relation_inclusion_dependencies: []});
+      const crossInclusions = uniqueDependencies(sixNF.cross_relation_inclusion_dependencies || []);
+      const relationBoxes = (sixNF.relations || []).map(target => {
+        const dependencies = uniqueDependencies(target.dependencies || []);
         return `<div class="box relation-box">
           <h3>${escapeHtml(target.name)}</h3>
           ${renderAttributes(target.attributes, [], relationKeyAttributes(target.attributes, dependencies))}
+          ${renderDependencyBox(dependencies, target.name, target.attributes)}
+        </div>`;
+      }).join('');
+      return `<div class="grid relation-grid">${relationBoxes}${renderCrossRelationBox(crossInclusions)}</div>`;
+    }
+
+    function renderConceptual(data) {
+      const source = cnfState || data.CNF || data['6NF'] || {relations: [], cross_relation_inclusion_dependencies: []};
+      const cnf = normalFormForDisplay(source);
+      const crossInclusions = uniqueDependencies(cnf.cross_relation_inclusion_dependencies || []);
+      const relationBoxes = (cnf.relations || []).map(target => {
+        const dependencies = uniqueDependencies(target.dependencies || []);
+        const keyAttributes = relationKeyAttributes(target.attributes, dependencies);
+        return `<div class="box relation-box">
+          <input class="cnf-relation-input" value="${escapeHtml(target.name)}" data-cnf-action="rename-relation" data-cnf-relation="${escapeHtml(target.name)}" aria-label="Rename relation ${escapeHtml(target.name)}">
+          ${renderEditableAttributes(target.attributes, keyAttributes)}
           ${renderDependencyBox(dependencies, target.name, target.attributes)}
         </div>`;
       }).join('');
@@ -1111,8 +1336,8 @@ SSN ->> email`;
         return `<div class="relation-block">
           <div class="relation-title">NF for ${escapeHtml(relTitle)}</div>
           <div class="grid">
-            <div class="box"><h3>Applicable FDs</h3><div class="chips">${chips(displayedFds, 'dep')}</div></div>
-            <div class="box"><h3>Applicable MVDs</h3><div class="chips">${chips(mvds, 'dep')}</div></div>
+            <div class="box"><h3>Applicable FDs</h3><div class="chips">${dependencyChips(displayedFds)}</div></div>
+            <div class="box"><h3>Applicable MVDs</h3><div class="chips">${dependencyChips(mvds)}</div></div>
             <div class="box full"><h3>NF Decomposition</h3><div class="chips">${chips(decomp)}</div></div>
             <div class="box full"><h3>Steps</h3>${renderSteps(item.steps, item.sql_null_relation_name || '')}</div>
           </div>
@@ -1167,7 +1392,7 @@ SSN ->> email`;
           <div class="grid">
             <div class="box"><h3>Attributes</h3><div class="chips">${chips(item.attributes)}</div></div>
             <div class="box"><h3>Nullable Attributes</h3><div class="chips">${chips(item.nullable)}</div></div>
-            <div class="box"><h3>Applicable Dependencies</h3><div class="chips">${chips(applicableDependencies, 'dep')}</div></div>
+            <div class="box"><h3>Applicable Dependencies</h3><div class="chips">${dependencyChips(applicableDependencies)}</div></div>
             <div class="box sql-null-box"><h3>SQL-null Decomposition</h3><div class="chips">${chips(namedSqlNull)}</div></div>
             <div class="box"><h3>Final NF</h3><div class="chips">${chips(final)}</div></div>
             <div class="box full"><h3>Removed Relations</h3>${renderRemoved(stage.removed_relations || {})}</div>
@@ -1192,8 +1417,14 @@ SSN ->> email`;
       const removedCount = inputItems.reduce((total, item) => {
         return total + Object.keys(((item.sql_null_stage || {}).removed_relations) || {}).length;
       }, 0);
+      if (!cnfState) cnfState = cloneCnf(data.CNF || data['6NF']);
       let html = renderSection('Source', renderSource(data));
-      html += renderSection('Target', renderTarget(data));
+      html += renderSection('Sixth Normal Form', renderTarget(data));
+      html += renderSection(
+        'Conceptual',
+        renderConceptual(data),
+        renderCnfSaveButton()
+      );
 
       html += `<div class="details-toggle-row">
         <button id="detailsToggle" class="details-toggle" type="button" aria-expanded="false" aria-controls="detailsPanel">Details</button>
@@ -1232,6 +1463,96 @@ SSN ->> email`;
       }
     }
 
+    function commitCnfInput(target, options = {}) {
+      const renderAfter = options.renderAfter !== false;
+      if (!target || !target.dataset || !target.dataset.cnfAction) return;
+      if (!activeData || !cnfState) return;
+
+      let changed = false;
+      if (target.dataset.cnfAction === 'rename-relation') {
+        changed = renameCnfRelation(target.dataset.cnfRelation || '', target.value);
+      }
+      if (target.dataset.cnfAction === 'rename-attribute') {
+        changed = renameCnfAttribute(target.dataset.cnfAttribute || '', target.value);
+      }
+      if (renderAfter && (changed || String(target.value || '').trim() !== String(target.dataset.cnfRelation || target.dataset.cnfAttribute || ''))) {
+        render(activeData);
+      }
+      return changed;
+    }
+
+    function handleCnfChange(event) {
+      const saving = event.type === 'focusout'
+        && event.relatedTarget
+        && event.relatedTarget.dataset
+        && event.relatedTarget.dataset.cnfSave;
+      commitCnfInput(event.target, {renderAfter: !saving});
+      if (saving) updateCnfSaveButtonState();
+    }
+
+    function handleCnfInput(event) {
+      const target = event.target;
+      if (!target || !target.dataset || !target.dataset.cnfAction) return;
+      updateCnfSaveButtonState();
+    }
+
+    function handleCnfKeydown(event) {
+      const target = event.target;
+      if (!target || !target.dataset || !target.dataset.cnfAction) return;
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitCnfInput(target);
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (activeData) render(activeData);
+      }
+    }
+
+    function commitVisibleCnfInputs() {
+      let changed = false;
+      for (const control of result.querySelectorAll('[data-cnf-action]')) {
+        changed = Boolean(commitCnfInput(control, {renderAfter: false})) || changed;
+      }
+      return changed;
+    }
+
+    function saveCnf() {
+      if (!activeData || !cnfState) return;
+      commitVisibleCnfInputs();
+      if (!isCnfDirty()) {
+        updateCnfSaveButtonState();
+        render(activeData);
+        return;
+      }
+      activeData.CNF = cloneCnf(cnfState);
+      activeData.CNF.name = 'CNF';
+      statusEl.textContent = 'CNF saved';
+      render(activeData);
+    }
+
+    function handleCnfSave(event) {
+      const button = event.target && event.target.closest
+        ? event.target.closest('[data-cnf-save]')
+        : null;
+      if (!button) return;
+      if (button.disabled) return;
+      saveCnf();
+    }
+
+    function handleSectionToggle(event) {
+      const button = event.target && event.target.closest
+        ? event.target.closest('[data-section-toggle]')
+        : null;
+      if (!button) return;
+      const key = button.dataset.sectionToggle;
+      const body = document.getElementById(button.getAttribute('aria-controls'));
+      const expanded = button.getAttribute('aria-expanded') === 'true';
+      sectionCollapseState[key] = expanded;
+      button.setAttribute('aria-expanded', String(!expanded));
+      if (body) body.hidden = expanded;
+    }
+
     async function compute() {
       statusEl.textContent = 'Running';
       result.innerHTML = '<div class="empty">Computing decomposition...</div>';
@@ -1242,18 +1563,29 @@ SSN ->> email`;
           body: JSON.stringify({text: input.value})
         });
         const data = await response.json();
+        activeData = data;
+        cnfState = data.errors ? null : cloneCnf(data.CNF || data['6NF']);
         render(data);
         statusEl.textContent = response.ok ? 'Done' : 'Check input';
       } catch (error) {
+        activeData = null;
+        cnfState = null;
         result.innerHTML = `<div class="box full"><h3>Request Failed</h3><pre>${escapeHtml(error.message)}</pre></div>`;
         statusEl.textContent = 'Failed';
       }
     }
 
+    result.addEventListener('click', handleSectionToggle);
+    result.addEventListener('click', handleCnfSave);
+    result.addEventListener('input', handleCnfInput);
+    result.addEventListener('focusout', handleCnfChange);
+    result.addEventListener('keydown', handleCnfKeydown);
     document.getElementById('runButton').addEventListener('click', compute);
     document.getElementById('sampleButton').addEventListener('click', () => { input.value = sample; });
     document.getElementById('clearButton').addEventListener('click', () => {
       input.value = '';
+      activeData = null;
+      cnfState = null;
       result.innerHTML = '<div class="empty">Compute the combined decomposition to see the result.</div>';
       statusEl.textContent = 'Ready';
     });

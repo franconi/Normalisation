@@ -38,6 +38,7 @@ Dependency syntax:
 from __future__ import annotations
 
 import argparse
+import copy
 import itertools
 import json
 import re
@@ -57,6 +58,7 @@ from sql_null_decomposer import (
     rename_attributes_for_relation,
     validate_schema as validate_sql_null_schema,
 )
+from six_nf import build_six_nf
 
 
 AttrSet = frozenset[str]
@@ -1190,7 +1192,7 @@ def analyze_combined_schema(schema: CombinedSchema) -> dict[str, object]:
     ]
     first_relation = per_input_relation[0]
 
-    return {
+    output = {
         "attributes": sorted(schema.attributes),
         "nullable": sorted(schema.nullable),
         "database_schemas": [
@@ -1294,6 +1296,10 @@ def analyze_combined_schema(schema: CombinedSchema) -> dict[str, object]:
             sorted(rel) for rel in sort_relations(original_final_relations)
         ],
     }
+    output["6NF"] = build_six_nf(output)
+    output["CNF"] = copy.deepcopy(output["6NF"])
+    output["CNF"]["name"] = "CNF"
+    return output
 
 
 def parse_attribute_set_with_known(

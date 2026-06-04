@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import os
 import platform
 import shutil
 import subprocess
@@ -48,6 +49,10 @@ def build_args(args: argparse.Namespace) -> list[str]:
 
     if not args.console and platform.system() in {"Darwin", "Windows"}:
         command.append("--windowed")
+
+    readme = ROOT / "readme.md"
+    if readme.exists():
+        command.extend(["--add-data", f"{readme}{os.pathsep}."])
 
     for module in [
         "combined_null_4nf_frontend",

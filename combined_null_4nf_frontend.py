@@ -3,11 +3,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 from combined_null_4nf_decomposer import analyze_combined_schema, schema_from_text
+
+
+SOURCE_ROOT = Path(__file__).resolve().parent
+APP_ROOT = Path(getattr(sys, "_MEIPASS", SOURCE_ROOT))
+
+
+def read_help_markdown() -> str:
+    for path in (APP_ROOT / "readme.md", SOURCE_ROOT / "readme.md"):
+        if path.exists():
+            return path.read_text(encoding="utf-8")
+    return "# Normaliser\n\nThe help file `readme.md` was not found."
 
 
 HTML = r"""<!doctype html>
@@ -50,6 +63,13 @@ HTML = r"""<!doctype html>
       justify-content: space-between;
       gap: 16px;
       margin-bottom: 18px;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
     }
     h1 {
       margin: 0;
@@ -413,6 +433,103 @@ HTML = r"""<!doctype html>
     .export-button {
       min-width: 104px;
     }
+    .help-dialog[hidden] {
+      display: none;
+    }
+    .help-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      background: rgba(23, 32, 38, 0.42);
+    }
+    .help-panel {
+      width: min(920px, 100%);
+      max-height: min(820px, calc(100vh - 56px));
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 18px 48px rgba(23, 32, 38, 0.22);
+    }
+    .help-head {
+      min-height: 52px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .help-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 720;
+    }
+    .markdown-body {
+      padding: 18px;
+      overflow: auto;
+      line-height: 1.55;
+      font-size: 14px;
+    }
+    .markdown-body h1,
+    .markdown-body h2,
+    .markdown-body h3,
+    .markdown-body h4,
+    .markdown-body h5,
+    .markdown-body h6 {
+      margin: 18px 0 8px;
+      line-height: 1.25;
+      color: var(--ink);
+    }
+    .markdown-body h1:first-child,
+    .markdown-body h2:first-child,
+    .markdown-body h3:first-child,
+    .markdown-body h4:first-child {
+      margin-top: 0;
+    }
+    .markdown-body h1 { font-size: 24px; }
+    .markdown-body h2 { font-size: 20px; }
+    .markdown-body h3 { font-size: 17px; }
+    .markdown-body h4 { font-size: 15px; }
+    .markdown-body p {
+      margin: 8px 0;
+      color: var(--ink);
+    }
+    .markdown-body ul,
+    .markdown-body ol {
+      margin: 8px 0 12px 22px;
+      padding: 0;
+    }
+    .markdown-body li {
+      margin: 5px 0;
+    }
+    .markdown-body code {
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 1px 4px;
+      background: #fbfcfd;
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .markdown-body pre {
+      max-height: none;
+      margin: 10px 0 12px;
+    }
+    .markdown-body pre code {
+      border: 0;
+      padding: 0;
+      background: transparent;
+      font: inherit;
+    }
+    .markdown-body a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
     .nested-box {
       margin-top: 10px;
       border: 1px solid var(--line);
@@ -497,8 +614,11 @@ HTML = r"""<!doctype html>
       header, .panel-head { align-items: stretch; flex-direction: column; }
       .layout, .summary, .grid, .relation-grid, .primary-grid, .context-grid { grid-template-columns: 1fr; }
       .controls { justify-content: flex-start; }
+      .header-actions { justify-content: flex-start; }
       textarea, .result { min-height: 420px; }
       .status { white-space: normal; }
+      .help-dialog { padding: 14px; }
+      .help-panel { max-height: calc(100vh - 28px); }
     }
   </style>
 </head>
@@ -506,7 +626,10 @@ HTML = r"""<!doctype html>
   <main>
     <header>
       <h1>Normaliser</h1>
-      <div id="status" class="status">Ready</div>
+      <div class="header-actions">
+        <button id="helpButton" type="button">Help</button>
+        <div id="status" class="status">Ready</div>
+      </div>
     </header>
 
     <div class="layout">
@@ -554,12 +677,27 @@ manager =&gt; empid</textarea>
     </div>
   </main>
 
+  <div id="helpDialog" class="help-dialog" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
+    <div class="help-panel">
+      <div class="help-head">
+        <h2 id="helpTitle" class="help-title">Help</h2>
+        <button id="helpCloseButton" type="button">Close</button>
+      </div>
+      <div id="helpContent" class="markdown-body"></div>
+    </div>
+  </div>
+
   <script>
     const input = document.getElementById('input');
     const result = document.getElementById('result');
     const statusEl = document.getElementById('status');
+    const helpButton = document.getElementById('helpButton');
+    const helpDialog = document.getElementById('helpDialog');
+    const helpCloseButton = document.getElementById('helpCloseButton');
+    const helpContent = document.getElementById('helpContent');
     let activeData = null;
     let cnfState = null;
+    let helpMarkdown = null;
     const sectionCollapseState = {};
 
     const sample = `database schema Registry:
@@ -590,6 +728,135 @@ manager => empid`;
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+    }
+
+    function sanitizeHelpUrl(url) {
+      const value = String(url || '').trim();
+      if (/^(https?:|mailto:)/i.test(value)) return value;
+      if (/^[./#]/.test(value)) return value;
+      return '#';
+    }
+
+    function renderInlineMarkdown(value) {
+      let html = escapeHtml(value);
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+        return `<a href="${escapeHtml(sanitizeHelpUrl(url))}" target="_blank" rel="noreferrer">${label}</a>`;
+      });
+      html = html.replace(/``([^`]+)``/g, '<code>$1</code>');
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      html = html.replace(/&amp;nbsp;/g, '&nbsp;');
+      return html;
+    }
+
+    function renderMarkdown(markdown) {
+      const lines = String(markdown || '').replace(/\r\n?/g, '\n').split('\n');
+      const output = [];
+      let paragraph = [];
+      let listType = null;
+      let codeLines = null;
+
+      function flushParagraph() {
+        if (!paragraph.length) return;
+        output.push(`<p>${renderInlineMarkdown(paragraph.join(' '))}</p>`);
+        paragraph = [];
+      }
+
+      function flushList() {
+        if (!listType) return;
+        output.push(`</${listType}>`);
+        listType = null;
+      }
+
+      function openList(type) {
+        if (listType === type) return;
+        flushParagraph();
+        flushList();
+        listType = type;
+        output.push(`<${type}>`);
+      }
+
+      function flushCode() {
+        if (codeLines === null) return;
+        output.push(`<pre><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`);
+        codeLines = null;
+      }
+
+      for (const line of lines) {
+        if (/^\s*```/.test(line)) {
+          if (codeLines === null) {
+            flushParagraph();
+            flushList();
+            codeLines = [];
+          } else {
+            flushCode();
+          }
+          continue;
+        }
+        if (codeLines !== null) {
+          codeLines.push(line);
+          continue;
+        }
+
+        if (!line.trim()) {
+          flushParagraph();
+          flushList();
+          continue;
+        }
+
+        const heading = line.match(/^(#{1,6})\s+(.*)$/);
+        if (heading) {
+          flushParagraph();
+          flushList();
+          const level = heading[1].length;
+          output.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+          continue;
+        }
+
+        const unordered = line.match(/^\s*[-*]\s+(.*)$/);
+        if (unordered) {
+          openList('ul');
+          output.push(`<li>${renderInlineMarkdown(unordered[1])}</li>`);
+          continue;
+        }
+
+        const ordered = line.match(/^\s*\d+\.\s+(.*)$/);
+        if (ordered) {
+          openList('ol');
+          output.push(`<li>${renderInlineMarkdown(ordered[1])}</li>`);
+          continue;
+        }
+
+        flushList();
+        paragraph.push(line.trim());
+      }
+
+      flushParagraph();
+      flushList();
+      flushCode();
+      return output.join('');
+    }
+
+    async function showHelp() {
+      helpDialog.hidden = false;
+      helpContent.innerHTML = '<p>Loading help...</p>';
+      helpCloseButton.focus();
+      try {
+        if (helpMarkdown === null) {
+          const response = await fetch('/api/help', {cache: 'no-store'});
+          if (!response.ok) throw new Error(`Help request failed (${response.status})`);
+          helpMarkdown = await response.text();
+        }
+        helpContent.innerHTML = renderMarkdown(helpMarkdown);
+      } catch (error) {
+        helpContent.innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    function closeHelp() {
+      helpDialog.hidden = true;
+      helpButton.focus();
     }
 
     function fmtSet(values) {
@@ -1654,6 +1921,14 @@ manager => empid`;
       input.value = await file.text();
       statusEl.textContent = file.name;
     });
+    helpButton.addEventListener('click', showHelp);
+    helpCloseButton.addEventListener('click', closeHelp);
+    helpDialog.addEventListener('click', (event) => {
+      if (event.target === helpDialog) closeHelp();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !helpDialog.hidden) closeHelp();
+    });
   </script>
 </body>
 </html>
@@ -1662,6 +1937,14 @@ manager => empid`;
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
+        if self.path == "/api/help":
+            self._send(
+                HTTPStatus.OK,
+                read_help_markdown().encode("utf-8"),
+                "text/markdown; charset=utf-8",
+            )
+            return
+
         if self.path not in {"/", "/index.html"}:
             self.send_error(HTTPStatus.NOT_FOUND)
             return

@@ -41,13 +41,10 @@ have the same arity.
    empid -N-> dept
    dept <-N-> manager
    empid <-N-> hdate
-   ssn -> name
+   ssn -> name empid
    ssn ->> phone
    ssn ->> email
-   ssn -> empid
-   empid -> ssn
-   empid -> hdate
-   empid -> dept
+   empid -> ssn hdate dept
    dept -> manager
    manager => empid
 ```

@@ -24,8 +24,8 @@ Attributes may be nullable.
 - alternative SQL-null dependencies: `A ->N<- B`
 - inclusion dependencies: `A B => C D`
 - equality inclusion dependencies: `A B == C D`
-- covering inclusion dependencies: `A B o=> C`
-- disjoint inclusion dependencies: `A B x=> C`
+- unary covering inclusion dependencies: `A B o=> C`
+- unary disjoint inclusion dependencies: `A B x=> C`
 
 Join dependencies (FDs and MVDs) and SQL-null dependencies must be contained in
 one relation. For inclusion dependencies, the left side must be contained in one

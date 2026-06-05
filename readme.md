@@ -34,21 +34,18 @@ have the same arity.
 #### Example:
 
 ```
-   database schema Registry:
-   relation T: ssn empid name hdate phone email dept manager
-   nullable: empid hdate dept manager
-   empid -N-> dept
-   dept <-N-> manager
-   empid <-N-> hdate
-   ssn -> name
-   ssn ->> phone
-   ssn ->> email
-   ssn -> empid
-   empid -> ssn
-   empid -> hdate
-   empid -> dept
-   dept -> manager
-   manager => empid
+  database schema Registry:
+  relation T: ssn empid name hdate phone email dept manager
+  nullable: empid hdate dept manager
+  empid -N-> dept
+  dept <-N-> manager
+  empid <-N-> hdate
+  ssn -> name empid
+  ssn ->> phone
+  ssn ->> email
+  empid -> ssn hdate dept
+  dept -> manager
+  manager => empid
 ```
 
 ### Desktop launcher:

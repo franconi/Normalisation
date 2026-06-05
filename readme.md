@@ -52,7 +52,7 @@ have the same arity.
    manager => empid
 ```
 
-### Desktop launcher:
+## Desktop launcher:
 
 The desktop launcher starts the local Normaliser server on an available port and
 opens it in the default browser:
@@ -60,7 +60,7 @@ opens it in the default browser:
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;``python3 desktop_launcher.py``
 
 
-#### Details on desktop launcher:
+### Details on desktop launcher:
 
 Launch the frontend with:
 

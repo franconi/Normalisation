@@ -1,0 +1,8 @@
+# Local .gitignore #
+####################
+
+CARM/
+__pycache__/
+path/
+Audit Findings.txt
+

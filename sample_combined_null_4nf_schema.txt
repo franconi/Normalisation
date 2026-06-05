@@ -1,19 +1,12 @@
-database schema registry:
-relation R1: A B C D E
-nullable: B C D
-
-# SQL-null dependencies for R1
-B -N-> C
-B ->N<- D
-
-# Functional dependencies and multivalued dependencies for R1
-B -> C
-
-relation R2: A D E
-nullable: D
-
-# Functional dependencies and multivalued dependencies for R2
-A ->> D
-
-# Inclusion dependencies
-A => A
+database schema Registry:
+relation T: ssn empid name hdate phone email dept manager
+nullable: empid hdate dept manager
+empid -N-> dept
+dept <-N-> manager
+empid <-N-> hdate
+ssn -> name empid
+ssn ->> phone
+ssn ->> email
+empid -> ssn hdate dept
+dept -> manager
+manager => empid

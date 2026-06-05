@@ -645,24 +645,16 @@ HTML = r"""<!doctype html>
           </div>
         </div>
         <textarea id="input" spellcheck="false">database schema Registry:
-
 relation T: ssn empid name hdate phone email dept manager
-
 nullable: empid hdate dept manager
-
 empid -N-> dept
 dept &lt;-N-&gt; manager
 empid &lt;-N-&gt; hdate
-
-ssn -&gt; name
+ssn -&gt; name empid
 ssn -&gt;&gt; phone
 ssn -&gt;&gt; email
-ssn -&gt; empid
-empid -&gt; ssn
-empid -&gt; hdate
-empid -&gt; dept
+empid -&gt; ssn hdate dept
 dept -&gt; manager
-
 manager =&gt; empid</textarea>
       </section>
 
@@ -701,24 +693,16 @@ manager =&gt; empid</textarea>
     const sectionCollapseState = {};
 
     const sample = `database schema Registry:
-
 relation T: ssn empid name hdate phone email dept manager
-
 nullable: empid hdate dept manager
-
 empid -N-> dept
 dept <-N-> manager
 empid <-N-> hdate
-
-ssn -> name
+ssn -> name empid
 ssn ->> phone
 ssn ->> email
-ssn -> empid
-empid -> ssn
-empid -> hdate
-empid -> dept
+empid -> ssn hdate dept
 dept -> manager
-
 manager => empid`;
 
     function escapeHtml(value) {

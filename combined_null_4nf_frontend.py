@@ -973,11 +973,11 @@ manager => empid`;
     }
 
     const keyAttributeColors = [
-      {bg: '#e4f7e8', border: '#a8d8b1'},
-      {bg: '#edf7d8', border: '#bddb86'},
-      {bg: '#ddf6ef', border: '#8fd2bf'},
-      {bg: '#f0f8df', border: '#c7df91'},
-      {bg: '#dff4df', border: '#96d19a'},
+      {bg: '#d8f3dc', border: '#7cc58a'},
+      {bg: '#eef8bf', border: '#b4cf54'},
+      {bg: '#c9f2e4', border: '#58c3a4'},
+      {bg: '#e0f2bd', border: '#91bd42'},
+      {bg: '#cdeed2', border: '#55b96b'},
     ];
 
     function keyAttributeColor(index) {

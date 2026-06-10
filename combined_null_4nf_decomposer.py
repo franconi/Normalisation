@@ -617,14 +617,18 @@ def dependency_preserving_four_nf_decomposition(
 ) -> tuple[list[AttrSet], list[dict[str, object]]]:
     usable_fds = applicable_fds(relation, fds)
     usable_mvds = applicable_mvds(relation, mvds)
+    basis_analyzer = DependencyAnalyzer(
+        DependencySchema(relation, tuple(usable_fds), tuple(usable_mvds))
+    )
+    basis_fds = basis_analyzer.nonredundant_fds()
     recursive_4nf, recursive_steps = four_nf_decomposition(
         relation,
-        usable_fds,
+        basis_fds,
         usable_mvds,
     )
     preserving_relations, preserving_steps = dependency_preservation_relations(
         relation,
-        usable_fds,
+        basis_fds,
         usable_mvds,
     )
 

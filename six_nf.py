@@ -9,20 +9,25 @@ DEPENDENCY_SYMBOLS = ("<-N->", "->N<-", "-N->", "->>", "o=>", "x=>", "==", "->",
 
 def build_six_nf(analysis: Mapping[str, Any]) -> dict[str, Any]:
     relations = build_target_relations(analysis)
-    return {
-        "name": "6NF",
-        "relations": [
+    relation_items: list[dict[str, Any]] = []
+    for relation in relations:
+        dependencies = target_relation_dependencies(relation, analysis)
+        dependencies = dependencies_with_fallback_key_constraint(relation, dependencies)
+        relation_items.append(
             {
                 "name": relation["name"],
                 "attributes": list(relation["attributes"]),
                 "dependencies": display_dependencies_for_relation(
                     relation["name"],
                     relation["attributes"],
-                    target_relation_dependencies(relation, analysis),
+                    dependencies,
                 ),
             }
-            for relation in relations
-        ],
+        )
+
+    return {
+        "name": "6NF",
+        "relations": relation_items,
         "cross_relation_inclusion_dependencies": target_cross_inclusion_texts(
             analysis,
             relations,
@@ -200,6 +205,40 @@ def closure(attributes: Iterable[str], functional_dependencies: Iterable[Mapping
                     result.add(attr)
                     changed = True
     return result
+
+
+def has_key_constraint(attributes: Iterable[str], dependencies: Iterable[str]) -> bool:
+    relation_attributes = list(attributes or [])
+    if not relation_attributes:
+        return True
+
+    target_attrs = set(relation_attributes)
+    functional_dependencies = [
+        dep
+        for text in dependencies or []
+        for dep in [functional_dependency_parts(text, relation_attributes)]
+        if dep and is_subset([*dep["lhs"], *dep["rhs"]], target_attrs)
+    ]
+    return any(
+        is_subset(relation_attributes, closure(dep["lhs"], functional_dependencies))
+        for dep in functional_dependencies
+    )
+
+
+def dependencies_with_fallback_key_constraint(
+    relation: Mapping[str, Any],
+    dependencies: Iterable[str],
+) -> list[str]:
+    items = list(dependencies or [])
+    attributes = list(relation.get("attributes", []) or [])
+    if not attributes or has_key_constraint(attributes, items):
+        return items
+
+    relation_name = str(relation.get("name") or relation_name_for(attributes))
+    return [
+        *items,
+        f"{fmt_set(attributes)} -> att({relation_name})",
+    ]
 
 
 def display_dependencies_for_relation(
@@ -397,11 +436,6 @@ def target_base_relation_dependencies(target: Mapping[str, Any], analysis: Mappi
         for dep in per_relation.get("applicable_fds", []) or []:
             if is_subset(dependency_attributes(dep, target.get("attributes", [])), target_attrs):
                 dependencies.append(str(dep))
-
-        for dep in per_relation.get("applicable_mvds", []) or []:
-            functional_text = str(dep).replace("->>", "->", 1)
-            if is_subset(dependency_attributes(functional_text, target.get("attributes", [])), target_attrs):
-                dependencies.append(functional_text)
 
         for dep in unique_inclusion_dependencies(analysis.get("inclusion_dependencies", []) or []):
             dep_attrs = [*dep.get("lhs", []), *dep.get("rhs", [])]

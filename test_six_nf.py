@@ -36,6 +36,108 @@ class SixNFTests(unittest.TestCase):
         )
         self.assertEqual([], six_nf["cross_relation_inclusion_dependencies"])
 
+    def test_six_nf_adds_all_attributes_key_when_relation_has_no_key_constraint(self):
+        analysis = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: A B C
+                """
+            )
+        )
+
+        six_nf = build_six_nf(analysis)
+
+        self.assertEqual(
+            [
+                {
+                    "name": "A_B_C",
+                    "attributes": ["A", "B", "C"],
+                    "dependencies": ["ABC -> att(A_B_C)"],
+                },
+            ],
+            six_nf["relations"],
+        )
+
+    def test_six_nf_does_not_turn_trivial_mvd_into_key_constraint(self):
+        analysis = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: a c
+                a ->> c
+                """
+            )
+        )
+
+        six_nf = build_six_nf(analysis)
+
+        self.assertEqual(
+            [
+                {
+                    "name": "a_c",
+                    "attributes": ["a", "c"],
+                    "dependencies": ["ac -> att(a_c)"],
+                },
+            ],
+            six_nf["relations"],
+        )
+
+    def test_six_nf_does_not_turn_nontrivial_mvd_into_key_constraint(self):
+        analysis = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: a b c
+                a ->> c
+                """
+            )
+        )
+
+        six_nf = build_six_nf(analysis)
+
+        self.assertEqual(
+            [
+                {
+                    "name": "a_b",
+                    "attributes": ["a", "b"],
+                    "dependencies": ["ab -> att(a_b)"],
+                },
+                {
+                    "name": "a_c",
+                    "attributes": ["a", "c"],
+                    "dependencies": ["ac -> att(a_c)"],
+                },
+            ],
+            six_nf["relations"],
+        )
+
+    def test_six_nf_does_not_use_mvd_as_key_after_fd_split(self):
+        analysis = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: a b c
+                a -> b
+                a ->> c
+                """
+            )
+        )
+
+        six_nf = build_six_nf(analysis)
+
+        self.assertEqual(
+            [
+                {
+                    "name": "a_b",
+                    "attributes": ["a", "b"],
+                    "dependencies": ["a -> att(a_b)"],
+                },
+                {
+                    "name": "a_c",
+                    "attributes": ["a", "c"],
+                    "dependencies": ["ac -> att(a_c)"],
+                },
+            ],
+            six_nf["relations"],
+        )
+
     def test_six_nf_contains_generated_numbered_suffix_dependencies(self):
         analysis = {
             "database_schemas": [
@@ -128,7 +230,10 @@ class SixNFTests(unittest.TestCase):
         six_nf = build_six_nf(analysis)
 
         self.assertEqual([], six_nf["cross_relation_inclusion_dependencies"])
-        self.assertEqual(["B => C"], six_nf["relations"][0]["dependencies"])
+        self.assertEqual(
+            ["B => C", "ABC -> att(A_B_C)"],
+            six_nf["relations"][0]["dependencies"],
+        )
 
 
 if __name__ == "__main__":

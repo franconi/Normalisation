@@ -62,6 +62,23 @@ class ExtendedConflictFreeTests(unittest.TestCase):
             expected_rels={"AB", "AC", "ADE"},
         )
 
+    def test_redundant_fd_lhs_does_not_create_mvd_split(self):
+        self.assert_good_schema(
+            Schema(
+                fs(["Project_ID", "Project_Name", "Budget", "Consultant", "Tool"]),
+                (
+                    FD(fs(["Project_ID", "Consultant", "Tool"]), fs(["Budget"])),
+                    FD(fs(["Project_ID", "Consultant", "Tool"]), fs(["Project_Name"])),
+                    FD(fs(["Project_ID"]), fs(["Budget"])),
+                    FD(fs(["Project_ID"]), fs(["Project_Name"])),
+                ),
+                (
+                    MVD(fs(["Project_ID"]), fs(["Consultant"])),
+                    MVD(fs(["Project_ID"]), fs(["Tool"])),
+                ),
+            )
+        )
+
     def test_yuan_ozsoyoglu_mixed_example_positive(self):
         self.assert_good_schema(
             schema(

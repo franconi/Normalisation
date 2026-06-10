@@ -538,6 +538,32 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
             output["per_input_relation"][0]["applicable_fds"],
         )
 
+    def test_redundant_key_att_notation_does_not_make_schema_conflict(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation ProjectAssignment: Project_ID Project_Name Budget Consultant Tool
+                Project_ID Consultant Tool -> att(ProjectAssignment)
+                Project_ID -> Project_Name
+                Project_ID -> Budget
+                Project_ID ->> Consultant
+                Project_ID ->> Tool
+                """
+            )
+        )
+
+        self.assertNotIn("extended_conflict_free_failures", output)
+        self.assertIn("CNF", output)
+        self.assertEqual(
+            [
+                ["Budget", "Project_ID"],
+                ["Consultant", "Project_ID"],
+                ["Project_ID", "Project_Name"],
+                ["Project_ID", "Tool"],
+            ],
+            output["final_decomposition"],
+        )
+
     def test_multi_rhs_fd_matches_equivalent_split_fds(self):
         combined = analyze_combined_schema(
             schema_from_text(

@@ -38,7 +38,7 @@ manager => ssn
 relation legal-company: companyID SSN director surname postcode city email
 nullable: companyID SSN director surname
 
-companyID ->N<- SSN
+companyID ->N<- SSN                 ;;; check IDs
 companyID <-N-> director
 SSN <-N-> surname
 companyID -> director postcode 
@@ -60,4 +60,12 @@ K -> att(R)
 relation: A B C
 A B -> C
 C -> A
+
+relation ProjectAssignment: Project_ID, Project_Name, Budget, Consultant, Tool
+Project_ID, Consultant, Tool -> att(ProjectAssignment)
+Project_ID -> Project_Name
+Project_ID -> Budget
+Project_ID ->> Consultant
+Project_ID ->> Tool
+
 

@@ -268,12 +268,54 @@ class Analyzer:
         self.chaser = Chaser(schema.attrs, max_rows=max_rows)
         self._dep_basis_cache: dict[AttrSet, tuple[AttrSet, ...]] = {}
         self._fd_closure_cache: dict[AttrSet, AttrSet] = {}
+        self._nonredundant_fds_cache: tuple[FD, ...] | None = None
+        self._conflict_free_lhs_sets_cache: set[AttrSet] | None = None
 
     def implies_fd(self, lhs: AttrSet, rhs: AttrSet) -> bool:
         return self.chaser.implies_fd(self.schema.fds, self.schema.mvds, lhs, rhs)
 
     def implies_mvd(self, lhs: AttrSet, rhs: AttrSet) -> bool:
         return self.chaser.implies_mvd(self.schema.fds, self.schema.mvds, lhs, rhs)
+
+    def nonredundant_fds(self) -> tuple[FD, ...]:
+        if self._nonredundant_fds_cache is None:
+            remaining = set(range(len(self.schema.fds)))
+            order = sorted(
+                range(len(self.schema.fds)),
+                key=lambda index: (
+                    -len(self.schema.fds[index].lhs),
+                    fmt_set(self.schema.fds[index].lhs),
+                    fmt_set(self.schema.fds[index].rhs),
+                ),
+            )
+            for index in order:
+                if index not in remaining:
+                    continue
+                fd = self.schema.fds[index]
+                if fd.rhs <= fd.lhs:
+                    remaining.remove(index)
+                    continue
+                other_fds = tuple(
+                    candidate
+                    for candidate_index, candidate in enumerate(self.schema.fds)
+                    if candidate_index in remaining and candidate_index != index
+                )
+                if self.chaser.implies_fd(other_fds, self.schema.mvds, fd.lhs, fd.rhs):
+                    remaining.remove(index)
+
+            self._nonredundant_fds_cache = tuple(
+                fd
+                for index, fd in enumerate(self.schema.fds)
+                if index in remaining
+            )
+        return self._nonredundant_fds_cache
+
+    def conflict_free_lhs_sets(self) -> set[AttrSet]:
+        if self._conflict_free_lhs_sets_cache is None:
+            self._conflict_free_lhs_sets_cache = {
+                dep.lhs for dep in self.nonredundant_fds()
+            } | {dep.lhs for dep in self.schema.mvds}
+        return self._conflict_free_lhs_sets_cache
 
     def fd_closure(self, lhs: AttrSet) -> AttrSet:
         if lhs not in self._fd_closure_cache:
@@ -336,7 +378,7 @@ class Analyzer:
 
     def extended_split_free(self) -> tuple[bool, list[str]]:
         errors: list[str] = []
-        lhs_sets = sorted(self.schema.lhs_sets, key=lambda s: (len(s), sorted(s)))
+        lhs_sets = sorted(self.conflict_free_lhs_sets(), key=lambda s: (len(s), sorted(s)))
 
         for x in lhs_sets:
             for y in lhs_sets:
@@ -367,7 +409,7 @@ class Analyzer:
 
     def m_intersection_property(self) -> tuple[bool, list[str]]:
         errors: list[str] = []
-        lhs_sets = sorted(self.schema.lhs_sets, key=lambda s: (len(s), sorted(s)))
+        lhs_sets = sorted(self.conflict_free_lhs_sets(), key=lambda s: (len(s), sorted(s)))
         for x in lhs_sets:
             for y in lhs_sets:
                 common = self.mdep(x) & self.mdep(y)
@@ -390,7 +432,7 @@ class Analyzer:
 
     def f_intersection_property(self) -> tuple[bool, list[str]]:
         errors: list[str] = []
-        lhs_sets = sorted(self.schema.lhs_sets, key=lambda s: (len(s), sorted(s)))
+        lhs_sets = sorted(self.conflict_free_lhs_sets(), key=lambda s: (len(s), sorted(s)))
         for x in lhs_sets:
             for y in lhs_sets:
                 common_attrs = set().union(*self.fdep(x)) if self.fdep(x) else set()

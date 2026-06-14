@@ -13,6 +13,7 @@ Text input format:
   B -N-> C
   C <-N-> D
   B ->N<- D
+  B ->>N<<- D
   AB -> C
   A ->> D
 
@@ -31,6 +32,7 @@ Dependency syntax:
   A -N-> B     implies SQL-null
   A <-N-> B    jointly SQL-null
   A ->N<- B    alternative SQL-null
+  A ->>N<<- B  existential SQL-null
   X -> Y       functional dependency
   X ->> Y      multivalued dependency
 """
@@ -1741,7 +1743,7 @@ def schema_from_text(text: str) -> CombinedSchema:
         builders.append(current_builder)
 
     for line_no, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.split("#", 1)[0].split("--", 1)[0].strip()
+        line = raw_line.split("#", 1)[0].split("--", 1)[0].split(";", 1)[0].strip()
         if not line:
             continue
 
@@ -1827,7 +1829,7 @@ def schema_from_text(text: str) -> CombinedSchema:
                 )
             continue
 
-        sql_dep_match = re.match(r"^(.*?)\s*(<-N->|->N<-|-N->)\s*(.*?)$", line)
+        sql_dep_match = re.match(r"^(.*?)\s*(->>N<<-|<-N->|->N<-|-N->)\s*(.*?)$", line)
         if sql_dep_match:
             if not known_attributes:
                 raise ValueError(
@@ -1852,6 +1854,8 @@ def schema_from_text(text: str) -> CombinedSchema:
                 kind = "jointly_sql_null"
             elif symbol == "->N<-":
                 kind = "alternative_sql_null"
+            elif symbol == "->>N<<-":
+                kind = "existential_sql_null"
             else:
                 kind = "implies_sql_null"
             dep = SQLNullDependency(kind, lhs, rhs)
@@ -2027,6 +2031,16 @@ def parse_json_sql_null_dependencies(data: dict[str, object]) -> list[SQLNullDep
     for dep in data.get("alternative", []):
         sql_null_dependencies.append(
             SQLNullDependency("alternative_sql_null", str(dep["lhs"]), str(dep["rhs"]))
+        )
+
+    for dep in data.get("existential_sql_null", []):
+        sql_null_dependencies.append(
+            SQLNullDependency("existential_sql_null", str(dep["lhs"]), str(dep["rhs"]))
+        )
+
+    for dep in data.get("existential", []):
+        sql_null_dependencies.append(
+            SQLNullDependency("existential_sql_null", str(dep["lhs"]), str(dep["rhs"]))
         )
 
     return sql_null_dependencies

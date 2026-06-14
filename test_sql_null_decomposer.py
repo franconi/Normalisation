@@ -61,6 +61,17 @@ class SQLNullDecomposerTests(unittest.TestCase):
         self.assertEqual({"ABD", "ACD"}, rels(final))
         self.assertEqual({"AD", "ABCD"}, set(removed))
 
+    def test_existential_sql_null_keeps_at_least_one_non_null(self):
+        final, removed = sql_null_decomposition(
+            schema(
+                "ABCD",
+                "BC",
+                [dep("existential_sql_null", "B", "C")],
+            )
+        )
+        self.assertEqual({"ABD", "ACD", "ABCD"}, rels(final))
+        self.assertEqual({"AD"}, set(removed))
+
     def test_combined_dependencies(self):
         final, removed = sql_null_decomposition(
             schema(
@@ -78,11 +89,12 @@ class SQLNullDecomposerTests(unittest.TestCase):
     def test_text_parser(self):
         parsed = schema_from_text(
             """
-            relation Orders: A B C E
-            nullable: B C
-            B -N-> C
-            B <-N-> C
-            B ->N<- C
+            relation Orders: A B C E ; declared relation attributes
+            nullable: B C ; nullable attributes
+            B -N-> C ; implication
+            B <-N-> C ; joint nullability
+            B ->N<- C ; alternative nullability
+            B ->>N<<- C ; existential nullability
             """
         )
         self.assertEqual("Orders", parsed.relation_name)
@@ -93,6 +105,7 @@ class SQLNullDecomposerTests(unittest.TestCase):
                 dep("implies_sql_null", "B", "C"),
                 dep("jointly_sql_null", "B", "C"),
                 dep("alternative_sql_null", "B", "C"),
+                dep("existential_sql_null", "B", "C"),
             ),
             parsed.dependencies,
         )

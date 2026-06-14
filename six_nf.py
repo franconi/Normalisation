@@ -349,23 +349,39 @@ def real_target_relations(target_relations: Iterable[Mapping[str, Any]]) -> list
 
 
 def target_numbered_suffix_groups(target_relations: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    by_prefix: dict[str, dict[int, str]] = {}
+    by_prefix: dict[str, dict[str, Any]] = {}
     for relation in real_target_relations(target_relations):
         for attribute in relation.get("attributes", []):
             match = re.match(r"^(.*)#(\d+)$", str(attribute))
-            if not match or not match.group(1):
+            if match and match.group(1):
+                group = by_prefix.setdefault(
+                    match.group(1),
+                    {"attributes": {}, "base_attribute": None},
+                )
+                group["attributes"][int(match.group(2))] = str(attribute)
                 continue
-            by_prefix.setdefault(match.group(1), {})[int(match.group(2))] = str(attribute)
+
+            attribute_name = str(attribute)
+            if attribute_name:
+                group = by_prefix.setdefault(
+                    attribute_name,
+                    {"attributes": {}, "base_attribute": None},
+                )
+                group["base_attribute"] = attribute_name
 
     groups = [
         {
             "prefix": prefix,
-            "attributes": [attribute for _, attribute in sorted(by_number.items())],
+            "attributes": [
+                attribute
+                for _, attribute in sorted(group["attributes"].items())
+            ],
+            "base_attribute": group["base_attribute"],
         }
-        for prefix, by_number in by_prefix.items()
+        for prefix, group in by_prefix.items()
     ]
     return sorted(
-        [group for group in groups if len(group["attributes"]) >= 2],
+        [group for group in groups if group["attributes"]],
         key=lambda group: natural_key(group["prefix"]),
     )
 
@@ -402,7 +418,8 @@ def build_target_relations(analysis: Mapping[str, Any]) -> list[dict[str, Any]]:
 
     relations = list(by_key.values())
     for group in target_qualifying_numbered_suffix_groups(relations, analysis):
-        add_generated_target_prefix_relation(relations, group["prefix"])
+        if len(group["attributes"]) >= 2:
+            add_generated_target_prefix_relation(relations, group["prefix"])
 
     return sorted(
         relations,
@@ -505,10 +522,15 @@ def target_generated_numbered_suffix_inclusions(
 ) -> list[str]:
     dependencies: list[str] = []
     for group in target_qualifying_numbered_suffix_groups(target_relations, analysis):
-        lhs = fmt_set(group["attributes"])
-        rhs = fmt_set([group["prefix"]])
-        dependencies.append(f"{lhs} x=> {rhs}")
-        dependencies.append(f"{lhs} o=> {rhs}")
+        if len(group["attributes"]) >= 2:
+            lhs = fmt_set(group["attributes"])
+            rhs = fmt_set([group["prefix"]])
+            dependencies.append(f"{lhs} x=> {rhs}")
+            dependencies.append(f"{lhs} o=> {rhs}")
+        elif len(group["attributes"]) == 1 and group.get("base_attribute"):
+            dependencies.append(
+                f"{fmt_set(group['attributes'])} => {fmt_set([str(group['base_attribute'])])}"
+            )
     return [str(dep) for dep in unique_dependencies(dependencies)]
 
 

@@ -12,6 +12,7 @@ If no database schema is declared, the input is treated as the default database
 schema. 
 Database schemas, relations, and attributes are named globally. 
 Attributes may be nullable.
+Lines may end with comments prefixed by `;`, `#`, or `--`.
 
 #### Dependency syntax:
 
@@ -21,6 +22,7 @@ Attributes may be nullable.
 - implies SQL-null dependencies: `A -N-> B`
 - jointly SQL-null dependencies: `A <-N-> B`
 - alternative SQL-null dependencies: `A ->N<- B`
+- existential SQL-null dependencies: `A ->>N<<- B`
 - inclusion dependencies: `A B => C D`
 - equality inclusion dependencies: `A B == C D`
 - covering inclusion dependencies: `A B o=> C D`

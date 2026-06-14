@@ -17,19 +17,20 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
     def test_parser_accepts_sql_null_fds_and_mvds(self):
         parsed = schema_from_text(
             """
-            attributes: A B C D
-            nullable: B C
-            B -N-> C
-            B <-N-> C
-            B ->N<- C
-            AB -> D
-            A ->> C
+            attributes: A B C D ; declared relation attributes
+            nullable: B C ; nullable attributes
+            B -N-> C ; implication
+            B <-N-> C ; joint nullability
+            B ->N<- C ; alternative nullability
+            B ->>N<<- C ; existential nullability
+            AB -> D ; functional dependency
+            A ->> C ; multivalued dependency
             """
         )
 
         self.assertEqual({"A", "B", "C", "D"}, set(parsed.attributes))
         self.assertEqual({"B", "C"}, set(parsed.nullable))
-        self.assertEqual(3, len(parsed.sql_null_dependencies))
+        self.assertEqual(4, len(parsed.sql_null_dependencies))
         self.assertEqual(1, len(parsed.fds))
         self.assertEqual(1, len(parsed.mvds))
 
@@ -153,6 +154,30 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
         )
         self.assertEqual(
             {"ABD", "ACD"},
+            rels(output["original_final_decomposition"]),
+        )
+
+    def test_existential_sql_null_decomposition_is_computed_before_4nf(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                attributes: A B C D
+                nullable: B C
+                B ->>N<<- C
+                """
+            )
+        )
+
+        self.assertEqual(
+            {"ABD", "ACD", "ABCD"},
+            rels(output["sql_null_stage"]["sql_null_decomposition"]),
+        )
+        self.assertEqual(
+            {"A#1,B#1,D#1", "A#2,C#2,D#2", "A#3,B#3,C#3,D#3"},
+            rels(output["final_decomposition"]),
+        )
+        self.assertEqual(
+            {"ABD", "ACD", "ABCD"},
             rels(output["original_final_decomposition"]),
         )
 

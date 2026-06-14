@@ -10,6 +10,7 @@ Text input format:
   B -N-> C
   B <-N-> C
   B ->N<- C
+  B ->>N<<- C
 
 JSON input format:
 
@@ -40,7 +41,12 @@ from typing import Iterable, Literal, Sequence
 
 
 AttrSet = frozenset[str]
-Kind = Literal["implies_sql_null", "jointly_sql_null", "alternative_sql_null"]
+Kind = Literal[
+    "implies_sql_null",
+    "jointly_sql_null",
+    "alternative_sql_null",
+    "existential_sql_null",
+]
 
 
 def fs(values: Iterable[str]) -> AttrSet:
@@ -151,7 +157,9 @@ def dependency_symbol(kind: Kind) -> str:
         return "-N->"
     if kind == "jointly_sql_null":
         return "<-N->"
-    return "->N<-"
+    if kind == "alternative_sql_null":
+        return "->N<-"
+    return "->>N<<-"
 
 
 def nullable_powerset(schema: SQLNullSchema) -> list[AttrSet]:
@@ -191,6 +199,12 @@ def removal_reasons(nullable_subset: AttrSet, schema: SQLNullSchema) -> list[str
             reasons.append(
                 f"{format_relation(nullable_subset)} {reason} "
                 f"{dep.lhs}, {dep.rhs} for {dep.lhs} ->N<- {dep.rhs}"
+            )
+
+        if dep.kind == "existential_sql_null" and not (has_lhs or has_rhs):
+            reasons.append(
+                f"{format_relation(nullable_subset)} contains neither "
+                f"{dep.lhs}, {dep.rhs} for {dep.lhs} ->>N<<- {dep.rhs}"
             )
 
     return reasons
@@ -326,6 +340,14 @@ def schema_from_json(data: dict[str, object]) -> SQLNullSchema:
         parse_dependency_object(dep, "alternative_sql_null")
         for dep in data.get("alternative_sql_null", [])
     ]
+    dependencies += [
+        parse_dependency_object(dep, "existential_sql_null")
+        for dep in data.get("existential", [])
+    ]
+    dependencies += [
+        parse_dependency_object(dep, "existential_sql_null")
+        for dep in data.get("existential_sql_null", [])
+    ]
     return validate_schema(SQLNullSchema(attributes, nullable, tuple(dependencies), relation_name))
 
 
@@ -363,7 +385,7 @@ def schema_from_text(text: str) -> SQLNullSchema:
     dependencies: list[SQLNullDependency] = []
 
     for line_no, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.split("#", 1)[0].split("--", 1)[0].strip()
+        line = raw_line.split("#", 1)[0].split("--", 1)[0].split(";", 1)[0].strip()
         if not line:
             continue
 
@@ -387,11 +409,11 @@ def schema_from_text(text: str) -> SQLNullSchema:
             )
             continue
 
-        dep_match = re.match(r"^(.*?)\s*(<-N->|->N<-|-N->)\s*(.*?)$", line)
+        dep_match = re.match(r"^(.*?)\s*(->>N<<-|<-N->|->N<-|-N->)\s*(.*?)$", line)
         if not dep_match:
             raise ValueError(
                 f"line {line_no}: expected 'attributes:', 'nullable:', "
-                "'A -N-> B', 'A <-N-> B', or 'A ->N<- B'"
+                "'A -N-> B', 'A <-N-> B', 'A ->N<- B', or 'A ->>N<<- B'"
             )
 
         lhs = parse_single_attribute(dep_match.group(1), attributes, line_no)
@@ -401,6 +423,8 @@ def schema_from_text(text: str) -> SQLNullSchema:
             kind: Kind = "jointly_sql_null"
         elif symbol == "->N<-":
             kind = "alternative_sql_null"
+        elif symbol == "->>N<<-":
+            kind = "existential_sql_null"
         else:
             kind = "implies_sql_null"
         dependencies.append(SQLNullDependency(kind, lhs, rhs))

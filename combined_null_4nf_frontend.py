@@ -391,6 +391,7 @@ HTML = r"""<!doctype html>
       font: 13px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       letter-spacing: 0;
       outline: none;
+      box-sizing: border-box;
     }
     .cnf-relation-input {
       min-height: 30px;
@@ -409,8 +410,44 @@ HTML = r"""<!doctype html>
       border-color: var(--key-border, #a8d8b1);
     }
     .cnf-attribute-input.kind-identifier-attribute {
-      background: #ffe2e2;
-      border-color: #ed9d9d;
+      border-color: var(--kind-border, #7c3aed);
+      border-width: 3px;
+      box-shadow: 0 0 0 1px var(--kind-ring, rgba(124, 58, 237, 0.2));
+    }
+    .attribute-edit {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      max-width: 100%;
+    }
+    .kind-draft-checkbox {
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      accent-color: #7c3aed;
+      flex: 0 0 auto;
+    }
+    .kind-identifier-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 6px 0;
+    }
+    .kind-identifier-actions button {
+      min-height: 26px;
+      padding: 3px 8px;
+      font-size: 12px;
+    }
+    .kind-identifier-actions button:disabled {
+      background: #eef2f3;
+      border-color: var(--line);
+      color: var(--muted);
+      cursor: not-allowed;
+      opacity: 0.62;
+    }
+    .kind-identifier-actions button:disabled:hover {
+      border-color: var(--line);
     }
     .kind-identifier-summary {
       background: #fff;
@@ -427,6 +464,31 @@ HTML = r"""<!doctype html>
     .kind-identifier-summary-text {
       font: 13px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       overflow-wrap: anywhere;
+    }
+    .kind-identifier-summary-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .kind-identifier-summary-list li {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 24px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: #fff;
+    }
+    .kind-identifier-summary-list li.joint {
+      border-color: #b79bf5;
+      background: #f6f1ff;
+    }
+    .kind-identifier-summary-separator {
+      color: var(--muted);
     }
     .cnf-relation-input:focus,
     .cnf-attribute-input:focus {
@@ -474,7 +536,11 @@ HTML = r"""<!doctype html>
     .help-dialog[hidden] {
       display: none;
     }
-    .help-dialog {
+    .joint-kind-dialog[hidden] {
+      display: none;
+    }
+    .help-dialog,
+    .joint-kind-dialog {
       position: fixed;
       inset: 0;
       z-index: 20;
@@ -484,7 +550,11 @@ HTML = r"""<!doctype html>
       padding: 28px;
       background: rgba(23, 32, 38, 0.42);
     }
-    .help-panel {
+    .joint-kind-dialog {
+      z-index: 30;
+    }
+    .help-panel,
+    .joint-kind-panel {
       width: min(920px, 100%);
       max-height: min(820px, calc(100vh - 56px));
       display: flex;
@@ -494,7 +564,11 @@ HTML = r"""<!doctype html>
       background: var(--panel);
       box-shadow: 0 18px 48px rgba(23, 32, 38, 0.22);
     }
-    .help-head {
+    .joint-kind-panel {
+      width: min(420px, 100%);
+    }
+    .help-head,
+    .joint-kind-head {
       min-height: 52px;
       padding: 12px 14px;
       border-bottom: 1px solid var(--line);
@@ -503,10 +577,42 @@ HTML = r"""<!doctype html>
       justify-content: space-between;
       gap: 12px;
     }
-    .help-title {
+    .help-title,
+    .joint-kind-title {
       margin: 0;
       font-size: 16px;
       font-weight: 720;
+    }
+    .joint-kind-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .joint-kind-controls button {
+      width: 32px;
+      min-width: 32px;
+      min-height: 32px;
+      padding: 0;
+      font-size: 16px;
+      line-height: 1;
+    }
+    .joint-kind-options {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+    }
+    .joint-kind-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      font: 13px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .joint-kind-option input {
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      accent-color: #7c3aed;
     }
     .markdown-body {
       padding: 18px;
@@ -717,6 +823,19 @@ manager =&gt; empid</textarea>
     </div>
   </div>
 
+  <div id="jointKindDialog" class="joint-kind-dialog" role="dialog" aria-modal="true" aria-labelledby="jointKindTitle" hidden>
+    <div class="joint-kind-panel">
+      <div class="joint-kind-head">
+        <h2 id="jointKindTitle" class="joint-kind-title">Joint Kind Identifiers</h2>
+        <div class="joint-kind-controls">
+          <button id="jointKindCancelButton" type="button" aria-label="Cancel" title="Cancel">×</button>
+          <button id="jointKindApplyButton" type="button" aria-label="Apply" title="Apply">✓</button>
+        </div>
+      </div>
+      <div id="jointKindOptions" class="joint-kind-options"></div>
+    </div>
+  </div>
+
   <script>
     const input = document.getElementById('input');
     const result = document.getElementById('result');
@@ -725,10 +844,16 @@ manager =&gt; empid</textarea>
     const helpDialog = document.getElementById('helpDialog');
     const helpCloseButton = document.getElementById('helpCloseButton');
     const helpContent = document.getElementById('helpContent');
+    const jointKindDialog = document.getElementById('jointKindDialog');
+    const jointKindOptions = document.getElementById('jointKindOptions');
+    const jointKindCancelButton = document.getElementById('jointKindCancelButton');
+    const jointKindApplyButton = document.getElementById('jointKindApplyButton');
     let activeData = null;
     let cnfState = null;
     let helpMarkdown = null;
+    let activeJointKindDialog = null;
     const sectionCollapseState = {};
+    const kindIdentifierDraftSelections = new Map();
 
     const sample = `database schema Registry:
 relation T: ssn empid name hdate phone email dept manager
@@ -881,6 +1006,63 @@ manager => empid`;
       helpButton.focus();
     }
 
+    function selectedJointKindIdentifierIndexes() {
+      return [...jointKindOptions.querySelectorAll('input[type="checkbox"]:checked')]
+        .map(input => Number.parseInt(input.dataset.jointKindIndex || '', 10))
+        .filter(Number.isInteger);
+    }
+
+    function closeJointKindIdentifierDialog(selected) {
+      const active = activeJointKindDialog;
+      if (!active) return;
+      activeJointKindDialog = null;
+      jointKindDialog.hidden = true;
+      jointKindOptions.innerHTML = '';
+      active.resolve(selected);
+    }
+
+    function confirmJointKindIdentifierDialog() {
+      closeJointKindIdentifierDialog(selectedJointKindIdentifierIndexes());
+    }
+
+    function jointKindIdentifierChoiceGroups(existing) {
+      const byKey = new Map();
+      for (const attrs of existing || []) {
+        const key = kindIdentifierDisplayKey(attrs);
+        if (!key) continue;
+        if (!byKey.has(key)) {
+          byKey.set(key, {
+            key,
+            label: jointKindIdentifierChoiceLabel(attrs),
+            identifiers: [],
+          });
+        }
+        byKey.get(key).identifiers.push(attrs);
+      }
+      return [...byKey.values()].sort((left, right) => {
+        return left.label.localeCompare(right.label, undefined, {numeric: true});
+      });
+    }
+
+    function showJointKindIdentifierDialog(choices) {
+      if (!choices.length) return Promise.resolve([]);
+      if (activeJointKindDialog) closeJointKindIdentifierDialog(null);
+
+      jointKindOptions.innerHTML = choices.map((choice, index) => {
+        return `<label class="joint-kind-option">
+          <input type="checkbox" data-joint-kind-index="${index}">
+          <span>${escapeHtml(choice.label)}</span>
+        </label>`;
+      }).join('');
+      jointKindDialog.hidden = false;
+
+      return new Promise(resolve => {
+        activeJointKindDialog = {resolve};
+        const firstChoice = jointKindOptions.querySelector('input[type="checkbox"]');
+        (firstChoice || jointKindApplyButton).focus();
+      });
+    }
+
     function fmtSet(values) {
       if (!values || values.length === 0) return '{}';
       return values.join(values.some(value => value.length > 1) ? ', ' : '');
@@ -973,11 +1155,16 @@ manager => empid`;
     }
 
     const keyAttributeColors = [
-      {bg: '#d8f3dc', border: '#7cc58a'},
-      {bg: '#eef8bf', border: '#b4cf54'},
-      {bg: '#c9f2e4', border: '#58c3a4'},
-      {bg: '#e0f2bd', border: '#91bd42'},
-      {bg: '#cdeed2', border: '#55b96b'},
+      {bg: '#d8f3dc', border: '#65b875'},
+      {bg: '#ffe0e0', border: '#df8585'},
+      {bg: '#dceeff', border: '#7aaee8'},
+    ];
+    const kindIdentifierBorderColors = [
+      {border: '#7c3aed', ring: 'rgba(124, 58, 237, 0.22)'},
+      {border: '#d97706', ring: 'rgba(217, 119, 6, 0.22)'},
+      {border: '#2563eb', ring: 'rgba(37, 99, 235, 0.22)'},
+      {border: '#be123c', ring: 'rgba(190, 18, 60, 0.2)'},
+      {border: '#047857', ring: 'rgba(4, 120, 87, 0.2)'},
     ];
 
     function keyAttributeColor(index) {
@@ -987,6 +1174,15 @@ manager => empid`;
     function keyAttributeStyle(color) {
       if (!color) return '';
       return `--key-bg:${color.bg};--key-border:${color.border}`;
+    }
+
+    function kindIdentifierBorderColor(index) {
+      return kindIdentifierBorderColors[index % kindIdentifierBorderColors.length];
+    }
+
+    function kindIdentifierStyle(color) {
+      if (!color) return '';
+      return `--kind-border:${color.border};--kind-ring:${color.ring}`;
     }
 
     function disjointKeyGroups(keyConstraints = []) {
@@ -1035,11 +1231,48 @@ manager => empid`;
       }).join('')}</div>`;
     }
 
+    function normalizedOriginalAttributes(relation) {
+      const attributes = relation && Array.isArray(relation.attributes)
+        ? relation.attributes.map(String)
+        : [];
+      const originals = relation && Array.isArray(relation.original_attributes)
+        ? relation.original_attributes.map(String)
+        : [];
+      if (originals.length === attributes.length) return originals;
+      return attributes.map((attribute, index) => originals[index] || attribute);
+    }
+
+    function ensureRelationOriginalNames(relation) {
+      if (!relation) return relation;
+      if (!relation.original_name) {
+        relation.original_name = relation.name || relationNameFor(relation.attributes || []);
+      }
+      relation.original_attributes = normalizedOriginalAttributes(relation);
+      return relation;
+    }
+
+    function relationOriginalName(relation) {
+      return (relation && relation.original_name)
+        ? relation.original_name
+        : (relation && relation.name) || '';
+    }
+
+    function relationOriginalAttribute(relation, index, attribute) {
+      const originals = normalizedOriginalAttributes(relation);
+      return originals[index] || attribute;
+    }
+
+    function originalNameTitle(originalName, currentName) {
+      return originalName && originalName !== currentName
+        ? ` title="Original name: ${escapeHtml(originalName)}"`
+        : '';
+    }
+
     function cloneCnf(source) {
       const cnf = JSON.parse(JSON.stringify(source || {}));
       return {
         name: cnf.name || 'CNF',
-        relations: cnf.relations || [],
+        relations: (cnf.relations || []).map(relation => ensureRelationOriginalNames(relation)),
         cross_relation_inclusion_dependencies: cnf.cross_relation_inclusion_dependencies || [],
       };
     }
@@ -1134,18 +1367,14 @@ manager => empid`;
       if (!coverage.ok) {
         return {applicable: false, key: 'missing', label: 'Create Kinds', title: 'Every Conceptual relation must contain at least one selected kind identifier'};
       }
-      const identifiersInSync = relatedKindIdentifiersInSync(cnfState);
-      const identifierAttributesInSync = relatedKindIdentifierAttributesInSync(cnfState);
-      if (kindRelationsInSync(cnfState) && identifiersInSync && identifierAttributesInSync) {
+      if (kindRelationsInSync(cnfState)) {
         return {applicable: false, key: 'created', label: 'Kinds Created', title: 'All selected kind identifiers have kind relations'};
       }
       return {
         applicable: true,
-        key: hasGeneratedKindRelations(cnfState) || !identifiersInSync || !identifierAttributesInSync ? 'stale' : 'ready',
+        key: hasGeneratedKindRelations(cnfState) ? 'stale' : 'ready',
         label: hasGeneratedKindRelations(cnfState) ? 'Update Kinds' : 'Create Kinds',
-        title: identifiersInSync && identifierAttributesInSync
-          ? 'Create one kind relation for each selected kind identifier'
-          : 'Complete related kind identifiers and create kind relations',
+        title: 'Create one kind relation for each root selected kind identifier',
       };
     }
 
@@ -1263,6 +1492,7 @@ manager => empid`;
 
     function renameCnfRelation(oldName, newName) {
       if (!cnfState) return false;
+      for (const relation of cnfState.relations || []) ensureRelationOriginalNames(relation);
       const cleanName = String(newName || '').trim();
       if (!cleanName || cleanName === oldName) return false;
       if (!(cnfState.relations || []).some(relation => relation.name === oldName)) return false;
@@ -1282,6 +1512,7 @@ manager => empid`;
 
     function renameCnfAttribute(oldAttribute, newName) {
       if (!cnfState) return false;
+      for (const relation of cnfState.relations || []) ensureRelationOriginalNames(relation);
       const oldBase = attributeParts(oldAttribute).base;
       const newBase = newBaseForAttribute(oldAttribute, newName);
       if (!newBase || newBase === oldBase) return false;
@@ -1294,10 +1525,21 @@ manager => empid`;
       const knownAttributes = allCnfAttributes(cnfState);
       const refreshGeneratedKinds = hasGeneratedKindRelations(cnfState);
       for (const relation of cnfState.relations || []) {
+        const generatedAutoName = isGeneratedKindRelation(relation)
+          ? rootKindRelationName([relation.attributes || []])
+          : '';
         relation.attributes = (relation.attributes || [])
           .map(attribute => renamedAttribute(attribute, oldBase, newBase));
         relation.dependencies = (relation.dependencies || [])
           .map(dep => rewriteDependencyAttributes(dep, knownAttributes, oldBase, newBase));
+        if (generatedAutoName && relation.name === generatedAutoName) {
+          const nextGeneratedAutoName = rootKindRelationName([relation.attributes || []]);
+          if (nextGeneratedAutoName && nextGeneratedAutoName !== relation.name) {
+            relation.dependencies = (relation.dependencies || [])
+              .map(dep => rewriteDependencyRelationName(dep, relation.name, nextGeneratedAutoName));
+            relation.name = nextGeneratedAutoName;
+          }
+        }
         if (Array.isArray(relation.kind_identifiers)) {
           const renamedKindIdentifiers = relation.kind_identifiers
             .map(attrs => normalizeKindIdentifier(attrs, knownAttributes)
@@ -1305,13 +1547,11 @@ manager => empid`;
           relation.kind_identifiers = uniqueAttributeSets(renamedKindIdentifiers);
           if (!relation.kind_identifiers.length) delete relation.kind_identifiers;
         }
-        if (Array.isArray(relation.generated_kind_identifier_attributes)) {
-          const renamedGeneratedAttributes = relation.generated_kind_identifier_attributes
-            .map(attribute => renamedAttribute(attribute, oldBase, newBase));
-          relation.generated_kind_identifier_attributes = unique(renamedGeneratedAttributes);
-          if (!relation.generated_kind_identifier_attributes.length) {
-            delete relation.generated_kind_identifier_attributes;
-          }
+        if (Array.isArray(relation.joint_kind_identifiers)) {
+          const renamedJointGroups = normalizeJointKindIdentifierGroups(relation)
+            .map(group => group.map(attrs => attrs
+              .map(attribute => renamedAttribute(attribute, oldBase, newBase))));
+          setRelationJointKindIdentifierGroups(relation, renamedJointGroups);
         }
       }
       cnfState.cross_relation_inclusion_dependencies = (cnfState.cross_relation_inclusion_dependencies || [])
@@ -1321,41 +1561,336 @@ manager => empid`;
       return true;
     }
 
-    function keyForKindIdentifierAttribute(attribute, keyConstraints, selectedKeys = new Set()) {
-      const matching = (keyConstraints || [])
-        .filter(attrs => (attrs || []).includes(attribute));
-      if (!matching.length) return null;
-
-      const selectedMatching = matching
-        .filter(attrs => selectedKeys.has(canonicalAttributes(attrs)));
-      const candidates = selectedMatching.length ? selectedMatching : matching;
-      return [...candidates].sort((left, right) => {
-        if (left.length !== right.length) return left.length - right.length;
-        return canonicalAttributes(left).localeCompare(canonicalAttributes(right), undefined, {numeric: true});
-      })[0];
+    function draftKeyForRelation(relation) {
+      return relation && relation.name
+        ? relation.name
+        : relationNameFor(relation ? relation.attributes || [] : []);
     }
 
-    function renderEditableAttributes(attributes, keyConstraints = [], relation = null) {
+    function draftSelectionForRelation(relation) {
+      return kindIdentifierDraftSelections.get(draftKeyForRelation(relation)) || new Set();
+    }
+
+    function setDraftSelectionForRelation(relation, selected) {
+      const relationKey = draftKeyForRelation(relation);
+      if (selected.size) {
+        kindIdentifierDraftSelections.set(relationKey, selected);
+      } else {
+        kindIdentifierDraftSelections.delete(relationKey);
+      }
+    }
+
+    function draftSelectedAttributes(relation) {
+      const selected = draftSelectionForRelation(relation);
+      return (relation.attributes || []).filter(attribute => selected.has(attribute));
+    }
+
+    function samePrefixAttributes(relation, base) {
+      return (relation.attributes || []).filter(attribute => {
+        const parts = attributeParts(attribute);
+        return parts.base === base;
+      });
+    }
+
+    function kindIdentifierExpansionBases(attributes) {
+      const candidate = unique(attributes || []);
+      if (!candidate.length) return [];
+      const parts = candidate.map(attributeParts);
+      if (!parts.every(part => part.base)) return [];
+      return unique(parts.map(part => part.base));
+    }
+
+    function expandedKindIdentifierAttributes(cnf, attributes) {
+      const selectedAttributes = new Set(unique(attributes || []));
+      if (!selectedAttributes.size) return [];
+      const selectedBases = new Set(kindIdentifierExpansionBases([...selectedAttributes]));
+      const relations = sourceConceptualRelations(cnf || {});
+      const preorderGroups = inclusionPreorderConnectedAttributeGroups(cnf || {});
+
+      let changed = true;
+      while (changed) {
+        changed = false;
+
+        for (const relation of relations) {
+          for (const attribute of relation.attributes || []) {
+            const parts = attributeParts(attribute);
+            if (!parts.base || !selectedBases.has(parts.base) || selectedAttributes.has(attribute)) continue;
+            selectedAttributes.add(attribute);
+            changed = true;
+          }
+        }
+
+        for (const group of preorderGroups) {
+          if (!group.some(attribute => selectedAttributes.has(attribute))) continue;
+          for (const attribute of group) {
+            if (selectedAttributes.has(attribute)) continue;
+            selectedAttributes.add(attribute);
+            changed = true;
+          }
+        }
+
+        for (const attribute of selectedAttributes) {
+          const parts = attributeParts(attribute);
+          if (!parts.base || selectedBases.has(parts.base)) continue;
+          selectedBases.add(parts.base);
+          changed = true;
+        }
+      }
+
+      return [...selectedAttributes];
+    }
+
+    function expandedKindIdentifierCandidates(cnf, attributes) {
+      const candidate = unique(attributes || []);
+      if (!candidate.length) return [];
+      const expandedAttributes = expandedKindIdentifierAttributes(cnf, candidate);
+      const expandedSet = attrSet(expandedAttributes);
+      const expanded = [];
+      for (const relation of sourceConceptualRelations(cnf || {})) {
+        const attrs = (relation.attributes || []).filter(attribute => expandedSet.has(attribute));
+        if (attrs.length) expanded.push(unique(attrs));
+      }
+
+      return uniqueAttributeSets(expanded.length ? expanded : [candidate]);
+    }
+
+    function updateKindIdentifierDraftSelection(relation, attribute, checked) {
+      const expanded = attrSet(expandedKindIdentifierAttributes(cnfState || {}, [attribute]));
+      for (const sourceRelation of sourceConceptualRelations(cnfState || {})) {
+        const selected = new Set(draftSelectionForRelation(sourceRelation));
+        let touched = false;
+        for (const candidateAttribute of sourceRelation.attributes || []) {
+          if (!expanded.has(candidateAttribute)) continue;
+          touched = true;
+          if (checked) {
+            selected.add(candidateAttribute);
+          } else {
+            selected.delete(candidateAttribute);
+          }
+        }
+        if (touched) setDraftSelectionForRelation(sourceRelation, selected);
+      }
+    }
+
+    function clearExpandedKindIdentifierDraft(relation, attributes) {
+      const expanded = attrSet(expandedKindIdentifierAttributes(cnfState || {}, attributes));
+      if (!expanded.size) {
+        clearKindIdentifierDraft(relation);
+        return;
+      }
+
+      for (const sourceRelation of sourceConceptualRelations(cnfState || {})) {
+        const selected = new Set(draftSelectionForRelation(sourceRelation));
+        let changed = false;
+        for (const attribute of sourceRelation.attributes || []) {
+          if (expanded.has(attribute) && selected.delete(attribute)) changed = true;
+        }
+        if (changed) setDraftSelectionForRelation(sourceRelation, selected);
+      }
+    }
+
+    function relationHasKindIdentifier(relation, attributes) {
+      const key = canonicalAttributes(attributes);
+      return (relation.kind_identifiers || [])
+        .some(item => canonicalAttributes(normalizeKindIdentifier(item, relation.attributes || [])) === key);
+    }
+
+    function relationSelectedKindIdentifiers(relation) {
+      return uniqueAttributeSets((relation.kind_identifiers || [])
+        .map(item => normalizeKindIdentifier(item, relation.attributes || [])));
+    }
+
+    function normalizeJointKindIdentifierGroup(group, relation) {
+      if (!Array.isArray(group)) return [];
+      const identifiers = group.every(item => typeof item === 'string')
+        ? [normalizeKindIdentifier(group, relation.attributes || [])]
+        : group.map(item => normalizeKindIdentifier(item, relation.attributes || []));
+      return uniqueAttributeSets(identifiers);
+    }
+
+    function normalizeJointKindIdentifierGroups(relation) {
+      return (relation.joint_kind_identifiers || [])
+        .map(group => normalizeJointKindIdentifierGroup(group, relation))
+        .filter(group => group.length > 1);
+    }
+
+    function setRelationJointKindIdentifierGroups(relation, groups) {
+      const selectedKeys = new Set(
+        relationSelectedKindIdentifiers(relation).map(canonicalAttributes)
+      );
+      const normalized = uniqueJointKindIdentifierGroups((groups || [])
+        .map(group => uniqueAttributeSets(group || [])
+          .filter(attrs => selectedKeys.has(canonicalAttributes(attrs))))
+        .filter(group => group.length > 1));
+      if (normalized.length) {
+        relation.joint_kind_identifiers = normalized;
+      } else {
+        delete relation.joint_kind_identifiers;
+      }
+    }
+
+    function uniqueJointKindIdentifierGroups(groups) {
+      const out = [];
+      const seen = new Set();
+      for (const group of groups || []) {
+        const identifiers = uniqueAttributeSets(group || []);
+        if (identifiers.length < 2) continue;
+        const key = identifiers.map(canonicalAttributes)
+          .sort((left, right) => left.localeCompare(right, undefined, {numeric: true}))
+          .join('\u0002');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(identifiers);
+      }
+      return out;
+    }
+
+    function pruneRelationJointKindIdentifierGroups(relation) {
+      setRelationJointKindIdentifierGroups(
+        relation,
+        normalizeJointKindIdentifierGroups(relation)
+      );
+    }
+
+    function addRelationJointKindIdentifierGroup(relation, identifiers) {
+      const incoming = uniqueAttributeSets(identifiers || []);
+      if (incoming.length < 2) return;
+
+      const selectedKeys = new Set(
+        relationSelectedKindIdentifiers(relation).map(canonicalAttributes)
+      );
+      const seed = incoming.filter(attrs => selectedKeys.has(canonicalAttributes(attrs)));
+      if (seed.length < 2) return;
+
+      let merged = uniqueAttributeSets(seed);
+      const rest = [];
+      let changed = true;
+      while (changed) {
+        changed = false;
+        const mergedKeys = new Set(merged.map(canonicalAttributes));
+        for (const group of normalizeJointKindIdentifierGroups(relation)) {
+          const intersects = group.some(attrs => mergedKeys.has(canonicalAttributes(attrs)));
+          const alreadyContained = group.every(attrs => mergedKeys.has(canonicalAttributes(attrs)));
+          if (intersects && !alreadyContained) {
+            merged = uniqueAttributeSets([...merged, ...group]);
+            changed = true;
+          }
+        }
+      }
+
+      const mergedKeys = new Set(merged.map(canonicalAttributes));
+      for (const group of normalizeJointKindIdentifierGroups(relation)) {
+        if (group.some(attrs => mergedKeys.has(canonicalAttributes(attrs)))) continue;
+        rest.push(group);
+      }
+      setRelationJointKindIdentifierGroups(relation, [...rest, merged]);
+    }
+
+    function kindIdentifierStyleMap(relation) {
+      const styles = new Map();
+      const identifiers = relationSelectedKindIdentifiers(relation);
+      for (const [index, item] of identifiers.entries()) {
+        const color = kindIdentifierBorderColor(index);
+        for (const attr of item) {
+          styles.set(attr, color);
+        }
+      }
+      return styles;
+    }
+
+    function kindIdentifierDraftActionState(relation) {
+      const selected = draftSelectedAttributes(relation);
+      const hasSelection = selected.length > 0;
+      const relationKey = draftKeyForRelation(relation);
+      const sourceRelation = sourceRelationByDraftKey(relationKey) || relation;
+      const expandedCandidates = hasSelection && cnfState
+        ? expandedKindIdentifierCandidates(cnfState, selected)
+        : [];
+      const removing = hasSelection && relationHasKindIdentifier(sourceRelation, selected);
+      let disabled = !hasSelection;
+      let title = hasSelection
+        ? 'Add selected attributes as a kind identifier'
+        : 'Select one or more attributes to add a kind identifier';
+
+      if (hasSelection && removing) {
+        title = expandedCandidates.length > 1
+          ? 'Remove matching prefixed kind identifiers'
+          : 'Remove the selected kind identifier';
+      } else if (hasSelection && !cnfState) {
+        disabled = true;
+        title = 'Compute a conceptual model before adding a kind identifier';
+      } else if (hasSelection) {
+        const validation = validateKindIdentifierCandidateSet(cnfState, expandedCandidates);
+        disabled = !validation.ok;
+        title = validation.ok
+          ? expandedCandidates.length > 1
+            ? 'Add matching prefixed attributes as kind identifiers'
+            : 'Add selected attributes as a kind identifier'
+          : validation.message;
+      }
+
+      return {
+        selected,
+        relationKey,
+        label: removing ? 'Remove Kind ID' : 'Add Kind ID',
+        disabled,
+        title,
+        clearDisabled: !hasSelection,
+        clearTitle: hasSelection
+          ? 'Clear selected attributes'
+          : 'No selected attributes to clear',
+      };
+    }
+
+    function renderKindIdentifierRelationActions(relation) {
+      const state = kindIdentifierDraftActionState(relation);
+      return `<div class="kind-identifier-actions">
+        <button type="button" data-kind-identifier-apply="${escapeHtml(state.relationKey)}" title="${escapeHtml(state.title)}"${state.disabled ? ' disabled' : ''}>${escapeHtml(state.label)}</button>
+        <button type="button" data-kind-identifier-clear="${escapeHtml(state.relationKey)}" title="${escapeHtml(state.clearTitle)}"${state.clearDisabled ? ' disabled' : ''}>Clear</button>
+      </div>`;
+    }
+
+    function renderCnfRelationInput(relation) {
+      const name = relation && relation.name
+        ? relation.name
+        : relationNameFor(relation ? relation.attributes || [] : []);
+      const originalName = relationOriginalName(relation) || name;
+      return `<input class="cnf-relation-input" value="${escapeHtml(name)}" data-cnf-action="rename-relation" data-cnf-relation="${escapeHtml(name)}" data-cnf-original-relation="${escapeHtml(originalName)}" aria-label="Rename relation ${escapeHtml(name)}"${originalNameTitle(originalName, name)}>`;
+    }
+
+    function renderEditableAttributes(attributes, keyConstraints = [], relation = null, options = {}) {
       if (!attributes || attributes.length === 0) return '<span class="dep-list-empty">none</span>';
+      const includeKindDraft = options.includeKindDraft !== false
+        && relation
+        && !isGeneratedKindRelation(relation);
       const keyStyles = keyAttributeStyleMap(attributes, keyConstraints);
-      const selectedKeys = relation ? selectedKindIdentifierKeys(relation) : new Set();
-      return `<div class="attribute-list">${attributes.map(attribute => {
-        const keyAttrs = keyForKindIdentifierAttribute(attribute, keyConstraints, selectedKeys);
+      const draftSelected = includeKindDraft ? draftSelectionForRelation(relation) : new Set();
+      const kindStyles = relation ? kindIdentifierStyleMap(relation) : new Map();
+      return `<div class="attribute-list">${attributes.map((attribute, index) => {
         const keyStyle = keyAttributeStyle(keyStyles.get(attribute));
+        const kindStyle = kindIdentifierStyle(kindStyles.get(attribute));
         const isKeyAttribute = Boolean(keyStyle);
-        const isKindIdentifier = (keyConstraints || [])
-          .filter(attrs => (attrs || []).includes(attribute))
-          .some(attrs => selectedKeys.has(canonicalAttributes(attrs)));
+        const isKindIdentifier = Boolean(kindStyle);
+        const isDraftSelected = draftSelected.has(attribute);
+        const originalAttribute = relation ? relationOriginalAttribute(relation, index, attribute) : attribute;
         const classes = ['cnf-attribute-input'];
         if (isKeyAttribute) classes.push('key-attribute');
         if (isKindIdentifier) classes.push('kind-identifier-attribute');
         const width = Math.max(6, Math.min(24, String(attribute).length + 2));
-        const styleParts = [`width:${width}ch`];
+        const renderedWidth = isKindIdentifier
+          ? `calc(${width}ch + 4px)`
+          : `${width}ch`;
+        const styleParts = [`width:${renderedWidth}`];
         if (keyStyle) styleParts.push(keyStyle);
-        const kindIdentifierData = keyAttrs
-          ? ` data-kind-identifier-attrs="${escapeHtml(JSON.stringify(keyAttrs))}" title="Double-click to toggle kind identifier"`
+        if (kindStyle) styleParts.push(kindStyle);
+        const relationKey = relation ? draftKeyForRelation(relation) : '';
+        const draftControl = includeKindDraft
+          ? `<input class="kind-draft-checkbox" type="checkbox" data-kind-draft-relation="${escapeHtml(relationKey)}" data-kind-draft-attribute="${escapeHtml(attribute)}" title="Select for kind identifier"${isDraftSelected ? ' checked' : ''}>`
           : '';
-        return `<input class="${classes.join(' ')}" style="${escapeHtml(styleParts.join(';'))}" value="${escapeHtml(attribute)}" data-cnf-action="rename-attribute" data-cnf-attribute="${escapeHtml(attribute)}"${kindIdentifierData} aria-label="Rename attribute ${escapeHtml(attribute)}">`;
+        return `<span class="attribute-edit">
+          ${draftControl}
+          <input class="${classes.join(' ')}" style="${escapeHtml(styleParts.join(';'))}" value="${escapeHtml(attribute)}" data-cnf-action="rename-attribute" data-cnf-attribute="${escapeHtml(attribute)}" data-cnf-original-attribute="${escapeHtml(originalAttribute)}" aria-label="Rename attribute ${escapeHtml(attribute)}"${originalNameTitle(originalAttribute, attribute)}>
+        </span>`;
       }).join('')}</div>`;
     }
 
@@ -1682,7 +2217,7 @@ manager => empid`;
     }
 
     function splitDependencyText(text) {
-      for (const symbol of ['<-N->', '->N<-', '-N->', '->>', 'o=>', 'x=>', '==', '->', '=>']) {
+      for (const symbol of ['->>N<<-', '<-N->', '->N<-', '-N->', '->>', 'o=>', 'x=>', '==', '->', '=>']) {
         const index = String(text).indexOf(symbol);
         if (index !== -1) {
           return {
@@ -1715,6 +2250,30 @@ manager => empid`;
       return {
         lhs: parseAttributeSide(split.lhs, knownAttributes),
         rhs: parseAttributeSide(split.rhs, knownAttributes),
+      };
+    }
+
+    function inclusionDependencyParts(dependency, knownAttributes = []) {
+      const text = typeof dependency === 'string'
+        ? dependency
+        : inclusionText(dependency);
+      const split = splitDependencyText(text);
+      if (!split || !['=>', '==', 'o=>', 'x=>'].includes(split.symbol)) return null;
+      const lhs = Array.isArray(dependency && dependency.lhs)
+        ? unique(dependency.lhs.map(String))
+        : parseAttributeSide(split.lhs, knownAttributes);
+      const rhs = Array.isArray(dependency && dependency.rhs)
+        ? unique(dependency.rhs.map(String))
+        : parseAttributeSide(split.rhs, knownAttributes);
+      const lhsSources = ['o=>', 'x=>'].includes(split.symbol)
+        ? lhs.map(attribute => [attribute])
+        : [lhs];
+      return {
+        symbol: split.symbol,
+        lhs,
+        rhs,
+        lhsSources,
+        text,
       };
     }
 
@@ -1780,45 +2339,17 @@ manager => empid`;
       return (cnf.relations || []).filter(relation => !isGeneratedKindRelation(relation));
     }
 
-    function selectedKindIdentifierKeys(relation) {
-      return new Set(
-        (relation.kind_identifiers || [])
-          .map(item => canonicalAttributes(normalizeKindIdentifier(item, relation.attributes || [])))
-          .filter(Boolean)
-      );
-    }
-
-    function availableKindIdentifierMap(relation) {
-      const byKey = new Map();
-      for (const attrs of relationKeyConstraints(relation.attributes || [], relation.dependencies || [])) {
-        const key = canonicalAttributes(attrs);
-        if (key && !byKey.has(key)) byKey.set(key, attrs);
-      }
-      return byKey;
-    }
-
-    function selectedAvailableKindIdentifierKeys(relation) {
-      const selected = selectedKindIdentifierKeys(relation);
-      return [...availableKindIdentifierMap(relation).keys()]
-        .filter(key => selected.has(key));
-    }
-
     function relationContainsKindIdentifier(relation, kindIdentifierSets) {
       const relationAttrs = attrSet(relation.attributes || []);
       return (kindIdentifierSets || [])
         .some(attrs => attrs.length && isSubset(attrs, relationAttrs));
     }
 
-    function relationHasGeneratedKindIdentifierAttributes(relation) {
-      return normalizedGeneratedKindIdentifierAttributes(relation).length > 0;
-    }
-
     function kindIdentifierCoverage(cnf) {
       const kindIdentifierSets = selectedKindIdentifierSets(cnf);
       const missing = [];
       for (const relation of sourceConceptualRelations(cnf)) {
-        if (relationContainsKindIdentifier(relation, kindIdentifierSets)
-          || relationHasGeneratedKindIdentifierAttributes(relation)) {
+        if (relationContainsKindIdentifier(relation, kindIdentifierSets)) {
           continue;
         }
         missing.push(relation.name || relationNameFor(relation.attributes || []));
@@ -1831,214 +2362,408 @@ manager => empid`;
 
     function kindIdentifierStatusText(cnf) {
       const coverage = kindIdentifierCoverage(cnf);
-      if (coverage.ok) return 'Kind identifiers: OK';
+      if (coverage.ok) {
+        const items = jointKindIdentifierSummaryItems(cnf);
+        return `Kind identifiers: ${items.join('; ') || 'none'}`;
+      }
       return `Missing kind identifier: ${coverage.missing.join(', ')}`;
     }
 
-    function relatedKindIdentifierGroups(cnf) {
-      const graph = new Map();
+    function relationContainsAttributes(relation, attributes) {
+      return isSubset(attributes, attrSet(relation.attributes || []));
+    }
+
+    function kindIdentifierKeyCompatible(relation, attributes) {
+      const candidate = attrSet(attributes || []);
+      const keys = relationKeyConstraints(relation.attributes || [], relation.dependencies || []);
+      if (!keys.length) return true;
+      const candidateKey = canonicalAttributes(attributes || []);
+      if (keys.some(keyAttrs => canonicalAttributes(keyAttrs) === candidateKey)) return true;
+      return keys.every(keyAttrs => {
+        const keySet = attrSet(keyAttrs);
+        const isWithinKey = isSubset(attributes, keySet);
+        const isDisjointFromKey = keyAttrs.every(attribute => !candidate.has(attribute));
+        return isWithinKey || isDisjointFromKey;
+      });
+    }
+
+    function inclusionDependenciesForKindIdentifiers(cnf) {
+      const dependencies = [];
       for (const relation of sourceConceptualRelations(cnf)) {
-        const selected = selectedAvailableKindIdentifierKeys(relation);
-        if (selected.length < 2) continue;
-        for (const key of selected) {
-          if (!graph.has(key)) graph.set(key, new Set());
-        }
-        for (let i = 0; i < selected.length; i += 1) {
-          for (let j = i + 1; j < selected.length; j += 1) {
-            graph.get(selected[i]).add(selected[j]);
-            graph.get(selected[j]).add(selected[i]);
+        dependencies.push(...(relation.dependencies || []));
+      }
+      dependencies.push(...(cnf.cross_relation_inclusion_dependencies || []));
+
+      if (activeData) {
+        dependencies.push(...(activeData.inclusion_dependencies || []));
+        for (const database of activeData.database_schemas || []) {
+          dependencies.push(...(database.inclusion_dependencies || []));
+          for (const relation of database.relations || []) {
+            dependencies.push(...(relation.inclusion_dependencies || []));
           }
         }
       }
+      return dependencies;
+    }
 
-      const groups = [];
+    function inclusionDependencySidesForKindIdentifiers(cnf) {
+      const knownAttributes = allCnfAttributes(cnf);
+      const knownSet = attrSet(knownAttributes);
+      const sides = [];
       const seen = new Set();
-      for (const key of graph.keys()) {
-        if (seen.has(key)) continue;
-        const stack = [key];
-        const group = [];
-        seen.add(key);
+      for (const dependency of inclusionDependenciesForKindIdentifiers(cnf)) {
+        const parsed = inclusionDependencyParts(dependency, knownAttributes);
+        if (!parsed) continue;
+        const sidesForDependency = [
+          ...parsed.lhsSources.map(attrs => ['source', attrs]),
+          ['target', parsed.rhs],
+        ];
+        for (const [role, attrs] of sidesForDependency) {
+          const side = unique(attrs || []);
+          if (!side.length || !isSubset(side, knownSet)) continue;
+          const key = `${role}\u0001${canonicalAttributes(side)}\u0001${dependencyKey(parsed.text)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          sides.push({role, attributes: side, dependency: parsed.text});
+        }
+      }
+      return sides;
+    }
+
+    function inclusionPreorderAttributePairs(lhs, rhs) {
+      const left = unique(lhs || []);
+      const right = unique(rhs || []);
+      if (!left.length || !right.length) return [];
+      if (left.length === right.length) {
+        return left.map((attribute, index) => [attribute, right[index]]);
+      }
+      return left.flatMap(leftAttribute => right.map(rightAttribute => [leftAttribute, rightAttribute]));
+    }
+
+    function inclusionPreorderAttributeEdges(cnf) {
+      const knownAttributes = allCnfAttributes(cnf);
+      const knownSet = attrSet(knownAttributes);
+      const edges = [];
+      const seen = new Set();
+
+      for (const dependency of inclusionDependenciesForKindIdentifiers(cnf)) {
+        const parsed = inclusionDependencyParts(dependency, knownAttributes);
+        if (!parsed || !['=>', 'o=>', 'x=>'].includes(parsed.symbol)) continue;
+        for (const source of parsed.lhsSources || [parsed.lhs]) {
+          const lhs = unique(source || []).filter(attribute => knownSet.has(attribute));
+          const rhs = unique(parsed.rhs || []).filter(attribute => knownSet.has(attribute));
+          for (const [left, right] of inclusionPreorderAttributePairs(lhs, rhs)) {
+            const key = `${left}\u0001${right}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            edges.push([left, right]);
+          }
+        }
+      }
+
+      return edges;
+    }
+
+    function inclusionPreorderConnectedAttributeGroups(cnf) {
+      const knownAttributes = allCnfAttributes(cnf);
+      const knownSet = attrSet(knownAttributes);
+      const parent = new Map();
+
+      function ensure(attribute) {
+        if (!knownSet.has(attribute)) return '';
+        if (!parent.has(attribute)) parent.set(attribute, attribute);
+        return attribute;
+      }
+
+      function find(attribute) {
+        const next = parent.get(attribute);
+        if (next === attribute) return attribute;
+        const root = find(next);
+        parent.set(attribute, root);
+        return root;
+      }
+
+      function union(left, right) {
+        const leftAttr = ensure(left);
+        const rightAttr = ensure(right);
+        if (!leftAttr || !rightAttr) return;
+        const leftRoot = find(leftAttr);
+        const rightRoot = find(rightAttr);
+        if (leftRoot !== rightRoot) parent.set(rightRoot, leftRoot);
+      }
+
+      for (const attribute of knownAttributes) ensure(attribute);
+
+      for (const [left, right] of inclusionPreorderAttributeEdges(cnf)) {
+        union(left, right);
+      }
+
+      const groups = new Map();
+      for (const attribute of parent.keys()) {
+        const root = find(attribute);
+        if (!groups.has(root)) groups.set(root, []);
+        groups.get(root).push(attribute);
+      }
+      return [...groups.values()].filter(group => group.length > 1);
+    }
+
+    function activeSourceAttributesForRootPreorder() {
+      const attributes = [];
+      if (activeData) {
+        attributes.push(...(activeData.attributes || []));
+        for (const relation of activeData.input_relations || []) {
+          attributes.push(...(relation.attributes || []));
+        }
+        for (const database of activeData.database_schemas || []) {
+          attributes.push(...(database.attributes || []));
+          for (const relation of database.relations || []) {
+            attributes.push(...(relation.attributes || []));
+          }
+        }
+      }
+      return unique(attributes);
+    }
+
+    function activeNullableBasesForRootPreorder() {
+      const nullable = [];
+      if (activeData) {
+        nullable.push(...(activeData.nullable || []));
+        for (const relation of activeData.input_relations || []) {
+          nullable.push(...(relation.nullable || []));
+        }
+        for (const database of activeData.database_schemas || []) {
+          nullable.push(...(database.nullable || []));
+          for (const relation of database.relations || []) {
+            nullable.push(...(relation.nullable || []));
+          }
+        }
+      }
+      return new Set(nullable.map(attribute => attributeParts(attribute).base));
+    }
+
+    function activeFunctionalDependenciesForRootPreorder() {
+      const dependencies = [];
+      if (activeData) {
+        dependencies.push(...(activeData.fds || []));
+        for (const item of activeData.per_input_relation || []) {
+          dependencies.push(...(item.applicable_fds || []));
+        }
+      }
+      return uniqueDependencies(dependencies);
+    }
+
+    function cnfAttributesByBase(cnf) {
+      const byBase = new Map();
+      for (const attribute of allCnfAttributes(cnf)) {
+        const base = attributeParts(attribute).base;
+        if (!byBase.has(base)) byBase.set(base, []);
+        byBase.get(base).push(attribute);
+      }
+      return byBase;
+    }
+
+    function sameSuffixAttributes(attribute, candidates) {
+      const suffix = attributeParts(attribute).suffix;
+      return (candidates || []).filter(candidate => attributeParts(candidate).suffix === suffix);
+    }
+
+    function functionalRootPreorderAttributeEdges(cnf) {
+      const nullableBases = activeNullableBasesForRootPreorder();
+      if (!nullableBases.size) return [];
+      const sourceAttributes = activeSourceAttributesForRootPreorder();
+      const attributesByBase = cnfAttributesByBase(cnf);
+      const edges = [];
+      const seen = new Set();
+
+      for (const dependency of activeFunctionalDependenciesForRootPreorder()) {
+        const parsed = functionalDependencyParts(dependency, sourceAttributes);
+        if (!parsed || parsed.lhs.length !== 1) continue;
+        const lhsBase = attributeParts(parsed.lhs[0]).base;
+        if (!nullableBases.has(lhsBase)) continue;
+        const lhsAttributes = attributesByBase.get(lhsBase) || [];
+
+        for (const rhsAttribute of parsed.rhs || []) {
+          const rhsBase = attributeParts(rhsAttribute).base;
+          if (nullableBases.has(rhsBase)) continue;
+          const rhsAttributes = attributesByBase.get(rhsBase) || [];
+          for (const lhsAttribute of lhsAttributes) {
+            for (const rhsMatch of sameSuffixAttributes(lhsAttribute, rhsAttributes)) {
+              const key = `${lhsAttribute}\u0001${rhsMatch}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              edges.push([lhsAttribute, rhsMatch]);
+            }
+          }
+        }
+      }
+
+      return edges;
+    }
+
+    function addRootPreorderEdgesForBases(edges, seen, attributesByBase, lhsBase, rhsBase) {
+      if (!lhsBase || !rhsBase || lhsBase === rhsBase) return;
+      const lhsAttributes = attributesByBase.get(lhsBase) || [];
+      const rhsAttributes = attributesByBase.get(rhsBase) || [];
+      for (const lhsAttribute of lhsAttributes) {
+        for (const rhsMatch of sameSuffixAttributes(lhsAttribute, rhsAttributes)) {
+          const key = `${lhsAttribute}\u0001${rhsMatch}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          edges.push([lhsAttribute, rhsMatch]);
+        }
+      }
+    }
+
+    function relationKeyRootPreorderAttributeEdges(cnf) {
+      const nullableBases = activeNullableBasesForRootPreorder();
+      if (!nullableBases.size) return [];
+      const attributesByBase = cnfAttributesByBase(cnf);
+      const edges = [];
+      const seen = new Set();
+
+      for (const relation of sourceConceptualRelations(cnf || {})) {
+        const keyConstraints = relationKeyConstraints(relation.attributes || [], relation.dependencies || []);
+        const singleAttributeKeys = keyConstraints
+          .filter(key => key.length === 1)
+          .map(key => key[0]);
+        for (const lhsAttribute of singleAttributeKeys) {
+          const lhsBase = attributeParts(lhsAttribute).base;
+          if (!nullableBases.has(lhsBase)) continue;
+          for (const rhsAttribute of singleAttributeKeys) {
+            const rhsBase = attributeParts(rhsAttribute).base;
+            if (nullableBases.has(rhsBase)) continue;
+            addRootPreorderEdgesForBases(edges, seen, attributesByBase, lhsBase, rhsBase);
+          }
+        }
+      }
+
+      return edges;
+    }
+
+    function inclusionPreorderReachability(cnf, extraEdges = []) {
+      const adjacency = new Map();
+      for (const attribute of allCnfAttributes(cnf)) {
+        if (!adjacency.has(attribute)) adjacency.set(attribute, new Set());
+      }
+      for (const [left, right] of [...inclusionPreorderAttributeEdges(cnf), ...extraEdges]) {
+        if (!adjacency.has(left)) adjacency.set(left, new Set());
+        if (!adjacency.has(right)) adjacency.set(right, new Set());
+        adjacency.get(left).add(right);
+      }
+
+      const memo = new Map();
+      function reachableFrom(attribute) {
+        if (memo.has(attribute)) return memo.get(attribute);
+        const reached = new Set();
+        const stack = [...(adjacency.get(attribute) || [])];
         while (stack.length) {
-          const current = stack.pop();
-          group.push(current);
-          for (const next of graph.get(current) || []) {
-            if (seen.has(next)) continue;
-            seen.add(next);
-            stack.push(next);
-          }
+          const next = stack.pop();
+          if (reached.has(next)) continue;
+          reached.add(next);
+          for (const target of adjacency.get(next) || []) stack.push(target);
         }
-        if (group.length > 1) {
-          groups.push(group.sort((left, right) => left.localeCompare(right, undefined, {numeric: true})));
-        }
+        memo.set(attribute, reached);
+        return reached;
       }
-      return groups;
+
+      return {
+        reaches(left, right) {
+          return left === right || reachableFrom(left).has(right);
+        },
+      };
     }
 
-    function completeRelatedKindIdentifiers(cnf) {
-      let added = 0;
-      let changed = false;
-      let passChanged = true;
+    function kindIdentifierInclusionConflict(cnf, attributes) {
+      const key = canonicalAttributes(attributes);
+      const candidate = attrSet(attributes || []);
+      for (const side of inclusionDependencySidesForKindIdentifiers(cnf)) {
+        const isEqual = canonicalAttributes(side.attributes) === key;
+        const isDisjoint = side.attributes.every(attribute => !candidate.has(attribute));
+        if (!isEqual && !isDisjoint) return side;
+      }
+      return null;
+    }
 
-      while (passChanged) {
-        passChanged = false;
-        const groups = relatedKindIdentifierGroups(cnf);
-        if (!groups.length) break;
+    function relationKindIdentifierOverlap(relation, attributes, ignoreExact = false) {
+      const candidate = attrSet(attributes || []);
+      const candidateKey = canonicalAttributes(attributes || []);
+      for (const item of relation.kind_identifiers || []) {
+        const existing = normalizeKindIdentifier(item, relation.attributes || []);
+        if (ignoreExact && canonicalAttributes(existing) === candidateKey) continue;
+        if (existing.some(attribute => candidate.has(attribute))) return existing;
+      }
+      return null;
+    }
 
-        for (const relation of sourceConceptualRelations(cnf)) {
-          const available = availableKindIdentifierMap(relation);
-          const selected = selectedKindIdentifierKeys(relation);
-          for (const group of groups) {
-            if (!group.some(key => selected.has(key))) continue;
-            for (const key of group) {
-              if (selected.has(key) || !available.has(key)) continue;
-              setRelationKindIdentifier(relation, available.get(key), true);
-              selected.add(key);
-              added += 1;
-              changed = true;
-              passChanged = true;
+    function affectedKindIdentifierRelations(cnf, attributes) {
+      return sourceConceptualRelations(cnf)
+        .filter(relation => relationContainsAttributes(relation, attributes));
+    }
+
+    function validateKindIdentifierCandidate(cnf, attributes, options = {}) {
+      const candidate = unique(attributes || []);
+      if (!candidate.length) {
+        return {ok: false, message: 'Select at least one attribute'};
+      }
+      const affected = affectedKindIdentifierRelations(cnf, candidate);
+      if (!affected.length) {
+        return {ok: false, message: 'Kind identifier attributes are not contained in any relation'};
+      }
+      const removing = Boolean(options.removing);
+      const inclusionConflict = !removing
+        ? kindIdentifierInclusionConflict(cnf, candidate)
+        : null;
+      if (inclusionConflict) {
+        return {
+          ok: false,
+          message: `Kind identifier ${fmtSet(candidate)} conflicts with the ${inclusionConflict.role} ${fmtSet(inclusionConflict.attributes)} of inclusion dependency ${inclusionConflict.dependency}`,
+        };
+      }
+      for (const relation of affected) {
+        if (!removing && !kindIdentifierKeyCompatible(relation, candidate)) {
+          return {
+            ok: false,
+            message: `Kind identifier ${fmtSet(candidate)} conflicts with a key in ${relation.name || relationNameFor(relation.attributes || [])}`,
+          };
+        }
+        if (!removing) {
+          const overlap = relationKindIdentifierOverlap(relation, candidate, true);
+          if (overlap) {
+            const keys = relationKeyConstraints(relation.attributes || [], relation.dependencies || []);
+            const isCandidateKey = keys.some(keyAttrs => canonicalAttributes(keyAttrs) === canonicalAttributes(candidate));
+            const isOverlapKey = keys.some(keyAttrs => canonicalAttributes(keyAttrs) === canonicalAttributes(overlap));
+            if (!isCandidateKey || !isOverlapKey) {
+              return {
+                ok: false,
+                message: `Kind identifier ${fmtSet(candidate)} overlaps ${fmtSet(overlap)} in ${relation.name || relationNameFor(relation.attributes || [])}`,
+              };
             }
           }
         }
       }
-
-      return {added, changed};
+      return {ok: true, affected};
     }
 
-    function relatedKindIdentifiersInSync(cnf) {
-      const copy = cloneCnf(cnf);
-      return !completeRelatedKindIdentifiers(copy).changed;
-    }
-
-    function normalizedGeneratedKindIdentifierAttributes(relation) {
-      const relationAttrs = attrSet(relation.attributes || []);
-      return unique(relation.generated_kind_identifier_attributes || [])
-        .filter(attribute => relationAttrs.has(attribute));
-    }
-
-    function setGeneratedKindIdentifierAttributes(relation, attributes) {
-      const next = unique(attributes || []);
-      if (next.length) {
-        relation.generated_kind_identifier_attributes = next;
-      } else {
-        delete relation.generated_kind_identifier_attributes;
+    function validateKindIdentifierCandidateSet(cnf, candidates, options = {}) {
+      const normalized = uniqueAttributeSets(candidates || []);
+      if (!normalized.length) {
+        return {ok: false, message: 'Select at least one attribute'};
       }
-    }
-
-    function addGeneratedKindIdentifierAttribute(relation, generatedAttributes, relationAttrs, attribute) {
-      if (relationAttrs.has(attribute)) return false;
-      if (!Array.isArray(relation.attributes)) relation.attributes = [];
-      relation.attributes.push(attribute);
-      generatedAttributes.push(attribute);
-      relationAttrs.add(attribute);
-      return true;
-    }
-
-    function kindIdentifierAttributePropagationSnapshot(cnf) {
-      return JSON.stringify(sourceConceptualRelations(cnf).map(relation => ({
-        name: relation.name || '',
-        attributes: relation.attributes || [],
-        generated_kind_identifier_attributes: normalizedGeneratedKindIdentifierAttributes(relation),
-      })));
-    }
-
-    function completeRelatedKindIdentifierAttributes(cnf) {
-      const before = kindIdentifierAttributePropagationSnapshot(cnf);
-      const relations = sourceConceptualRelations(cnf);
-      const initialAttributes = new Map(
-        relations.map(relation => [relation, attrSet(relation.attributes || [])])
-      );
-      const initialGenerated = new Map(
-        relations.map(relation => [relation, normalizedGeneratedKindIdentifierAttributes(relation)])
-      );
-      const generated = new Map(relations.map(relation => [relation, []]));
-
-      for (const relation of relations) {
-        const removable = attrSet(initialGenerated.get(relation) || []);
-        if (!removable.size) {
-          setGeneratedKindIdentifierAttributes(relation, []);
-          continue;
-        }
-        relation.attributes = (relation.attributes || [])
-          .filter(attribute => !removable.has(attribute));
-        setGeneratedKindIdentifierAttributes(relation, []);
+      const affected = [];
+      for (const candidate of normalized) {
+        const validation = validateKindIdentifierCandidate(cnf, candidate, options);
+        if (!validation.ok) return validation;
+        affected.push(...(validation.affected || []));
       }
-
-      let passChanged = true;
-
-      while (passChanged) {
-        passChanged = false;
-
-        for (const source of relations) {
-          const available = availableKindIdentifierMap(source);
-          const selected = selectedAvailableKindIdentifierKeys(source);
-          if (selected.length !== 1) continue;
-
-          const selectedKey = selected[0];
-          const selectedAttrs = available.get(selectedKey) || [];
-          const additionalKeys = [...available.entries()]
-            .filter(([key]) => key !== selectedKey);
-          if (!selectedAttrs.length || !additionalKeys.length) continue;
-
-          for (const relation of relations) {
-            if (relation === source) continue;
-            const relationAttrs = attrSet(relation.attributes || []);
-            const generatedAttrs = generated.get(relation);
-
-            if (isSubset(selectedAttrs, relationAttrs)) {
-              for (const [, attrs] of additionalKeys) {
-                for (const attr of attrs) {
-                  if (addGeneratedKindIdentifierAttribute(relation, generatedAttrs, relationAttrs, attr)) {
-                    passChanged = true;
-                  }
-                }
-              }
-            }
-
-            for (const [, attrs] of additionalKeys) {
-              if (!isSubset(attrs, relationAttrs)) continue;
-              for (const attr of selectedAttrs) {
-                if (addGeneratedKindIdentifierAttribute(relation, generatedAttrs, relationAttrs, attr)) {
-                  passChanged = true;
-                }
-              }
-            }
-          }
-        }
-      }
-
-      for (const relation of relations) {
-        setGeneratedKindIdentifierAttributes(relation, generated.get(relation) || []);
-      }
-
-      const after = kindIdentifierAttributePropagationSnapshot(cnf);
-      let added = 0;
-      let removed = 0;
-      for (const relation of relations) {
-        const initial = initialAttributes.get(relation) || new Set();
-        const current = attrSet(relation.attributes || []);
-        for (const attr of generated.get(relation) || []) {
-          if (!initial.has(attr)) added += 1;
-        }
-        for (const attr of initialGenerated.get(relation) || []) {
-          if (!current.has(attr)) removed += 1;
-        }
-      }
-
-      return {added, removed, changed: before !== after};
-    }
-
-    function relatedKindIdentifierAttributesInSync(cnf) {
-      const copy = cloneCnf(cnf);
-      return !completeRelatedKindIdentifierAttributes(copy).changed;
+      return {ok: true, affected};
     }
 
     function selectedKindIdentifierSets(cnf) {
       const byKey = new Map();
       for (const relation of sourceConceptualRelations(cnf)) {
-        const selected = selectedKindIdentifierKeys(relation);
-        for (const attrs of relationKeyConstraints(relation.attributes || [], relation.dependencies || [])) {
+        for (const attrs of relationSelectedKindIdentifiers(relation)) {
           const key = canonicalAttributes(attrs);
-          if (!selected.has(key) || byKey.has(key)) continue;
+          if (!key || byKey.has(key)) continue;
           byKey.set(key, [...attrs]);
         }
       }
@@ -2049,25 +2774,324 @@ manager => empid`;
       });
     }
 
+    function kindIdentifierDisplayAttributes(attributes) {
+      return unique((attributes || []).map(attribute => {
+        const parts = attributeParts(attribute);
+        return parts.base || String(attribute);
+      })).sort((left, right) => left.localeCompare(right, undefined, {numeric: true}));
+    }
+
+    function kindIdentifierDisplayKey(attributes) {
+      return canonicalAttributes(kindIdentifierDisplayAttributes(attributes));
+    }
+
+    function kindIdentifierDisplayLabel(attributes) {
+      return fmtSet(kindIdentifierDisplayAttributes(attributes));
+    }
+
+    function jointKindIdentifierChoiceLabel(attributes) {
+      return kindIdentifierDisplayAttributes(attributes).join(', ');
+    }
+
+    function kindIdentifierNamePart(attributes) {
+      return relationNameFor(kindIdentifierDisplayAttributes(attributes));
+    }
+
+    function selectedKindIdentifierGroupDescriptors(cnf) {
+      const descriptors = new Map();
+      const parent = new Map();
+
+      function ensure(attributes) {
+        const attrs = unique(attributes || []);
+        const key = kindIdentifierDisplayKey(attrs);
+        if (!key) return '';
+        if (!parent.has(key)) parent.set(key, key);
+        if (!descriptors.has(key)) {
+          descriptors.set(key, {
+            key,
+            label: kindIdentifierDisplayLabel(attrs),
+            name: kindIdentifierNamePart(attrs),
+            identifiers: [],
+            identifierKeys: new Set(),
+          });
+        }
+
+        const descriptor = descriptors.get(key);
+        const actualKey = canonicalAttributes(attrs);
+        if (actualKey && !descriptor.identifierKeys.has(actualKey)) {
+          descriptor.identifierKeys.add(actualKey);
+          descriptor.identifiers.push(attrs);
+        }
+        return key;
+      }
+
+      function find(key) {
+        if (!key) return '';
+        const next = parent.get(key);
+        if (next === key) return key;
+        const root = find(next);
+        parent.set(key, root);
+        return root;
+      }
+
+      function union(left, right) {
+        const leftRoot = find(left);
+        const rightRoot = find(right);
+        if (leftRoot !== rightRoot) parent.set(rightRoot, leftRoot);
+      }
+
+      for (const relation of sourceConceptualRelations(cnf)) {
+        for (const attrs of relationSelectedKindIdentifiers(relation)) {
+          ensure(attrs);
+        }
+        for (const group of normalizeJointKindIdentifierGroups(relation)) {
+          const keys = group
+            .map(ensure)
+            .filter(Boolean);
+          for (let index = 1; index < keys.length; index += 1) {
+            union(keys[0], keys[index]);
+          }
+        }
+      }
+
+      const descriptorKeysByAttribute = new Map();
+      for (const descriptor of descriptors.values()) {
+        for (const identifier of descriptor.identifiers || []) {
+          for (const attribute of identifier || []) {
+            if (!descriptorKeysByAttribute.has(attribute)) descriptorKeysByAttribute.set(attribute, new Set());
+            descriptorKeysByAttribute.get(attribute).add(descriptor.key);
+          }
+        }
+      }
+
+      for (const attributeGroup of inclusionPreorderConnectedAttributeGroups(cnf)) {
+        const keys = unique(attributeGroup.flatMap(attribute => {
+          return [...(descriptorKeysByAttribute.get(attribute) || [])];
+        }));
+        for (let index = 1; index < keys.length; index += 1) {
+          union(keys[0], keys[index]);
+        }
+      }
+
+      const groups = new Map();
+      for (const key of descriptors.keys()) {
+        const root = find(key);
+        if (!groups.has(root)) groups.set(root, []);
+        groups.get(root).push(descriptors.get(key));
+      }
+
+      return [...groups.values()].map(group => {
+        return group.map(descriptor => ({
+          key: descriptor.key,
+          label: descriptor.label,
+          name: descriptor.name,
+          identifiers: descriptor.identifiers,
+        })).sort((left, right) => {
+          return left.label.localeCompare(right.label, undefined, {numeric: true});
+        });
+      }).sort((left, right) => {
+        const leftKey = left.map(item => item.label).join('\u0001');
+        const rightKey = right.map(item => item.label).join('\u0001');
+        return leftKey.localeCompare(rightKey, undefined, {numeric: true});
+      });
+    }
+
+    function jointKindIdentifierSummaryGroups(cnf) {
+      return selectedKindIdentifierGroupDescriptors(cnf)
+        .map(group => group.map(item => item.label));
+    }
+
+    function jointKindIdentifierSummaryItems(cnf) {
+      return jointKindIdentifierSummaryGroups(cnf)
+        .map(group => group.length === 1 ? group[0] : `{${group.join(', ')}}`);
+    }
+
+    function renderKindIdentifierSummaryItem(group) {
+      if (group.length === 1) return `<li>${escapeHtml(group[0])}</li>`;
+      return `<li class="joint">${group
+        .map(label => `<span>${escapeHtml(label)}</span>`)
+        .join('<span class="kind-identifier-summary-separator">,</span>')}</li>`;
+    }
+
+    async function collectJointKindIdentifierChoices(candidates) {
+      const choices = [];
+      const pendingByCandidateKey = new Map();
+
+      for (const candidate of uniqueAttributeSets(candidates || [])) {
+        const candidateDisplayKey = kindIdentifierDisplayKey(candidate);
+        if (!candidateDisplayKey) continue;
+        for (const relation of affectedKindIdentifierRelations(cnfState, candidate)) {
+          if (relationHasKindIdentifier(relation, candidate)) continue;
+          if (!pendingByCandidateKey.has(candidateDisplayKey)) {
+            pendingByCandidateKey.set(candidateDisplayKey, []);
+          }
+          pendingByCandidateKey.get(candidateDisplayKey).push({
+            relation,
+            candidate,
+          });
+        }
+      }
+
+      for (const pendingItems of pendingByCandidateKey.values()) {
+        const existingByKey = new Map();
+        for (const item of pendingItems) {
+          const candidateKey = canonicalAttributes(item.candidate);
+          const candidateDisplayKey = kindIdentifierDisplayKey(item.candidate);
+          for (const attrs of relationSelectedKindIdentifiers(item.relation)) {
+            const existingDisplayKey = kindIdentifierDisplayKey(attrs);
+            if (
+              canonicalAttributes(attrs) === candidateKey
+              || existingDisplayKey === candidateDisplayKey
+            ) {
+              continue;
+            }
+            if (!existingByKey.has(existingDisplayKey)) {
+              existingByKey.set(existingDisplayKey, {
+                key: existingDisplayKey,
+                label: jointKindIdentifierChoiceLabel(attrs),
+                identifiers: [],
+              });
+            }
+            existingByKey.get(existingDisplayKey).identifiers.push(attrs);
+          }
+        }
+
+        const candidateChoices = [...existingByKey.values()].sort((left, right) => {
+          return left.label.localeCompare(right.label, undefined, {numeric: true});
+        });
+        if (!candidateChoices.length) continue;
+
+        const indexes = await showJointKindIdentifierDialog(candidateChoices);
+        if (indexes === null) return null;
+        const selectedKeys = new Set(indexes
+          .filter(index => index >= 0 && index < candidateChoices.length)
+          .map(index => candidateChoices[index].key));
+        if (!selectedKeys.size) continue;
+
+        for (const item of pendingItems) {
+          const selectedExisting = relationSelectedKindIdentifiers(item.relation)
+            .filter(attrs => selectedKeys.has(kindIdentifierDisplayKey(attrs)));
+          if (selectedExisting.length) {
+            choices.push({
+              relation: item.relation,
+              identifiers: [item.candidate, ...selectedExisting],
+            });
+          }
+        }
+      }
+
+      return choices;
+    }
+
     function kindRelationDependency(attributes, name) {
       return `${fmtSet(attributes)} -> att(${name})`;
     }
 
-    function kindRelationFor(attributes) {
-      const attrs = [...attributes];
-      const name = relationNameFor(attrs);
+    function kindRelationGroupKey(group) {
+      return (group || []).map(item => item.key).join('\u0002');
+    }
+
+    function kindIdentifierGroupItemAttributes(item) {
+      return unique((item && item.identifiers || []).flat());
+    }
+
+    function strictPreorderBefore(left, right, reachability) {
+      return left !== right
+        && reachability.reaches(left, right)
+        && !reachability.reaches(right, left);
+    }
+
+    function rootAttributesForKindIdentifier(identifier, candidateAttributes, reachability) {
+      const reachableCandidates = unique((candidateAttributes || []).filter(candidate => {
+        return (identifier || []).some(attribute => reachability.reaches(attribute, candidate));
+      }));
+      const candidates = reachableCandidates.length ? reachableCandidates : unique(identifier || []);
+      return candidates.filter(candidate => {
+        return !candidates.some(other => strictPreorderBefore(candidate, other, reachability));
+      }).sort((left, right) => left.localeCompare(right, undefined, {numeric: true}));
+    }
+
+    function rootKindIdentifiersForGroup(cnf, group) {
+      const identifiers = uniqueAttributeSets((group || []).flatMap(item => item.identifiers || []));
+      const candidateAttributes = unique((group || []).flatMap(kindIdentifierGroupItemAttributes));
+      const reachability = inclusionPreorderReachability(cnf, [
+        ...functionalRootPreorderAttributeEdges(cnf),
+        ...relationKeyRootPreorderAttributeEdges(cnf),
+      ]);
+      return uniqueAttributeSets(identifiers.map(identifier => {
+        return rootAttributesForKindIdentifier(identifier, candidateAttributes, reachability);
+      }));
+    }
+
+    function rootKindRelationName(rootIdentifiers) {
+      const rootAttributes = unique((rootIdentifiers || []).flat());
+      const names = kindIdentifierDisplayAttributes(rootAttributes);
+      return names.length ? names.join('/') : '{}';
+    }
+
+    function kindRelationForGroup(cnf, group) {
+      const identifiers = rootKindIdentifiersForGroup(cnf, group);
+      const attrs = unique(identifiers.flat())
+        .sort((left, right) => left.localeCompare(right, undefined, {numeric: true}));
+      const name = rootKindRelationName(identifiers);
       return {
         name,
         attributes: attrs,
-        dependencies: [kindRelationDependency(attrs, name)],
+        original_name: name,
+        original_attributes: [...attrs],
+        dependencies: uniqueDependencies(identifiers.map(identifier => kindRelationDependency(identifier, name))),
         generated_kind_relation: true,
-        kind_identifier_key: canonicalAttributes(attrs),
+        kind_identifier_group_key: kindRelationGroupKey(group),
+      };
+    }
+
+    function generatedKindRelationAutoName(relation) {
+      return rootKindRelationName([relation.attributes || []]);
+    }
+
+    function customGeneratedKindRelationName(relation) {
+      if (!relation || !relation.name) return '';
+      return relation.name === generatedKindRelationAutoName(relation)
+        ? ''
+        : relation.name;
+    }
+
+    function preserveGeneratedKindRelationName(cnf, expectedRelation) {
+      const generatedRelations = (cnf.relations || []).filter(isGeneratedKindRelation);
+      const expectedGroupKey = expectedRelation.kind_identifier_group_key || '';
+      const expectedAttributeKey = canonicalAttributes(expectedRelation.attributes || []);
+      const existing = generatedRelations.find(relation => {
+        return expectedGroupKey && relation.kind_identifier_group_key === expectedGroupKey;
+      }) || generatedRelations.find(relation => {
+        return expectedAttributeKey && canonicalAttributes(relation.attributes || []) === expectedAttributeKey;
+      });
+      if (existing) ensureRelationOriginalNames(existing);
+      if (existing && Array.isArray(existing.original_attributes)
+        && existing.original_attributes.length === (expectedRelation.attributes || []).length) {
+        expectedRelation = {
+          ...expectedRelation,
+          original_attributes: [...existing.original_attributes],
+        };
+      }
+      if (existing && existing.original_name) {
+        expectedRelation = {
+          ...expectedRelation,
+          original_name: existing.original_name,
+        };
+      }
+      const preservedName = customGeneratedKindRelationName(existing);
+      if (!preservedName) return expectedRelation;
+      return {
+        ...expectedRelation,
+        name: preservedName,
+        dependencies: uniqueDependencies((expectedRelation.dependencies || [])
+          .map(dep => rewriteDependencyRelationName(dep, expectedRelation.name, preservedName))),
       };
     }
 
     function normalizedKindRelationSignature(relation) {
       return {
-        key: relation.kind_identifier_key || canonicalAttributes(relation.attributes || []),
+        key: relation.kind_identifier_group_key || relation.kind_identifier_key || canonicalAttributes(relation.attributes || []),
         name: relation.name || '',
         attributes: relation.attributes || [],
         dependencies: uniqueDependencies(relation.dependencies || []),
@@ -2081,7 +3105,10 @@ manager => empid`;
     }
 
     function expectedKindRelations(cnf) {
-      return selectedKindIdentifierSets(cnf).map(kindRelationFor);
+      return selectedKindIdentifierGroupDescriptors(cnf)
+        .map(group => kindRelationForGroup(cnf, group))
+        .filter(relation => (relation.attributes || []).length)
+        .map(relation => preserveGeneratedKindRelationName(cnf, relation));
     }
 
     function kindRelationsInSync(cnf) {
@@ -2120,49 +3147,99 @@ manager => empid`;
       } else {
         delete relation.kind_identifiers;
       }
+      pruneRelationJointKindIdentifierGroups(relation);
     }
 
-    function setKindIdentifierForMatchingKeys(keyAttrs, checked) {
-      if (!cnfState) return false;
-      const key = canonicalAttributes(keyAttrs);
+    function sourceRelationByDraftKey(key) {
+      if (!cnfState) return null;
+      return sourceConceptualRelations(cnfState)
+        .find(relation => draftKeyForRelation(relation) === key) || null;
+    }
+
+    function clearKindIdentifierDraft(relation) {
+      kindIdentifierDraftSelections.delete(draftKeyForRelation(relation));
+    }
+
+    function setKindIdentifierEverywhere(attributes, checked) {
+      if (!cnfState) return {changed: false, count: 0};
+      const candidate = unique(attributes || []);
       let changed = false;
-      for (const relation of sourceConceptualRelations(cnfState)) {
-        const matchingKey = relationKeyConstraints(relation.attributes || [], relation.dependencies || [])
-          .find(attrs => canonicalAttributes(attrs) === key);
-        if (!matchingKey) continue;
-
+      let count = 0;
+      for (const relation of affectedKindIdentifierRelations(cnfState, candidate)) {
         const before = JSON.stringify(relation.kind_identifiers || []);
-        setRelationKindIdentifier(relation, matchingKey, checked);
+        setRelationKindIdentifier(relation, candidate, checked);
         const after = JSON.stringify(relation.kind_identifiers || []);
-        changed = changed || before !== after;
+        if (before !== after) {
+          changed = true;
+          count += 1;
+        }
       }
-      return changed;
+      return {changed, count};
     }
 
-    function matchingKindIdentifierSelected(keyAttrs) {
-      if (!cnfState) return false;
-      const key = canonicalAttributes(keyAttrs);
-      const matchingRelations = [];
-      for (const relation of sourceConceptualRelations(cnfState)) {
-        const matchingKey = relationKeyConstraints(relation.attributes || [], relation.dependencies || [])
-          .find(attrs => canonicalAttributes(attrs) === key);
-        if (matchingKey) matchingRelations.push(relation);
+    function setKindIdentifierCandidatesEverywhere(candidates, checked) {
+      if (!cnfState) return {changed: false, count: 0};
+      const changedRelations = new Set();
+      let changed = false;
+      for (const candidate of uniqueAttributeSets(candidates || [])) {
+        for (const relation of affectedKindIdentifierRelations(cnfState, candidate)) {
+          const before = JSON.stringify(relation.kind_identifiers || []);
+          setRelationKindIdentifier(relation, candidate, checked);
+          const after = JSON.stringify(relation.kind_identifiers || []);
+          if (before !== after) {
+            changed = true;
+            changedRelations.add(draftKeyForRelation(relation));
+          }
+        }
       }
-      return matchingRelations.length > 0
-        && matchingRelations.every(relation => selectedKindIdentifierKeys(relation).has(key));
+      return {changed, count: changedRelations.size};
     }
 
-    function toggleKindIdentifierForMatchingKeys(keyAttrs) {
-      const checked = !matchingKindIdentifierSelected(keyAttrs);
-      return setKindIdentifierForMatchingKeys(keyAttrs, checked);
+    async function applyKindIdentifierDraft(relationKey) {
+      if (!cnfState) return;
+      const relation = sourceRelationByDraftKey(relationKey);
+      if (!relation) return;
+      const attributes = draftSelectedAttributes(relation);
+      const expandedCandidates = expandedKindIdentifierCandidates(cnfState, attributes);
+      const removing = relationHasKindIdentifier(relation, attributes);
+      const validation = validateKindIdentifierCandidateSet(cnfState, expandedCandidates, {removing});
+      if (!validation.ok) {
+        statusEl.textContent = validation.message;
+        render(activeData);
+        return;
+      }
+
+      const jointChoices = removing
+        ? []
+        : await collectJointKindIdentifierChoices(expandedCandidates);
+      if (jointChoices === null) {
+        statusEl.textContent = 'Kind identifier addition cancelled';
+        render(activeData);
+        return;
+      }
+
+      const result = setKindIdentifierCandidatesEverywhere(expandedCandidates, !removing);
+      for (const choice of jointChoices) {
+        addRelationJointKindIdentifierGroup(choice.relation, choice.identifiers);
+      }
+      clearExpandedKindIdentifierDraft(relation, attributes);
+      statusEl.textContent = removing
+        ? `Kind identifier${expandedCandidates.length === 1 ? '' : 's'} removed from ${result.count} relation${result.count === 1 ? '' : 's'}`
+        : `Kind identifier${expandedCandidates.length === 1 ? '' : 's'} added to ${result.count} relation${result.count === 1 ? '' : 's'}`;
+      render(activeData);
     }
 
     function renderKindIdentifierSummary(cnf) {
       const coverage = kindIdentifierCoverage(cnf);
       const cls = coverage.ok ? 'ok' : 'warn';
+      const content = coverage.ok
+        ? `<ul class="kind-identifier-summary-list">${jointKindIdentifierSummaryGroups(cnf)
+          .map(renderKindIdentifierSummaryItem)
+          .join('')}</ul>`
+        : `<div class="kind-identifier-summary-text">${escapeHtml(kindIdentifierStatusText(cnf))}</div>`;
       return `<div class="box full kind-identifier-summary ${cls}">
         <h3>Kind Identifiers</h3>
-        <div class="kind-identifier-summary-text">${escapeHtml(kindIdentifierStatusText(cnf))}</div>
+        ${content}
       </div>`;
     }
 
@@ -2190,14 +3267,15 @@ manager => empid`;
         const keyConstraints = relationKeyConstraints(target.attributes, dependencies);
         if (isGeneratedKindRelation(target)) {
           return `<div class="box relation-box">
-            <h3>${escapeHtml(target.name)}</h3>
-            ${renderAttributes(target.attributes || [], [], keyConstraints)}
+            ${renderCnfRelationInput(target)}
+            ${renderEditableAttributes(target.attributes || [], keyConstraints, target, {includeKindDraft: false})}
             ${renderDependencyBox(dependencies, target.name, target.attributes)}
           </div>`;
         }
         return `<div class="box relation-box">
-          <input class="cnf-relation-input" value="${escapeHtml(target.name)}" data-cnf-action="rename-relation" data-cnf-relation="${escapeHtml(target.name)}" aria-label="Rename relation ${escapeHtml(target.name)}">
+          ${renderCnfRelationInput(target)}
           ${renderEditableAttributes(target.attributes, keyConstraints, target)}
+          ${renderKindIdentifierRelationActions(target)}
           ${renderDependencyBox(dependencies, target.name, target.attributes)}
         </div>`;
       }).join('');
@@ -2322,14 +3400,14 @@ manager => empid`;
         return total + Object.keys(((item.sql_null_stage || {}).removed_relations) || {}).length;
       }, 0);
       if (!cnfState) cnfState = cloneCnf(data.CNF || data['6NF']);
-      let html = renderSection('Source', renderSource(data));
+      let html = renderSection('Source Schema', renderSource(data));
       html += renderSection(
         'Sixth Normal Form',
         renderTarget(data),
         renderSixNfExportButton()
       );
       html += renderSection(
-        'Conceptual',
+        'Conceptual Normal Form',
         renderConceptual(data),
         renderConceptualActions()
       );
@@ -2420,34 +3498,39 @@ manager => empid`;
     function kindIdentifierStatusMessage() {
       if (!cnfState) return '';
       const coverage = kindIdentifierCoverage(cnfState);
-      if (coverage.ok) return 'Kind identifiers OK';
+      if (coverage.ok) return kindIdentifierStatusText(cnfState);
       return `Missing kind identifier: ${coverage.missing.join(', ')}`;
     }
 
-    function handleKindIdentifierDoubleClick(event) {
+    function handleKindIdentifierDraftChange(event) {
       const target = event.target && event.target.closest
-        ? event.target.closest('[data-kind-identifier-attrs]')
+        ? event.target.closest('[data-kind-draft-attribute]')
         : null;
       if (!target || !activeData || !cnfState) return;
-      event.preventDefault();
+      const relation = sourceRelationByDraftKey(target.dataset.kindDraftRelation || '');
+      if (!relation) return;
+      const attribute = target.dataset.kindDraftAttribute || '';
+      updateKindIdentifierDraftSelection(relation, attribute, target.checked);
+      render(activeData);
+    }
 
-      let keyAttrs = [];
-      try {
-        keyAttrs = JSON.parse(target.dataset.kindIdentifierAttrs || '[]');
-      } catch (error) {
-        keyAttrs = [];
+    async function handleKindIdentifierAction(event) {
+      const applyButton = event.target && event.target.closest
+        ? event.target.closest('[data-kind-identifier-apply]')
+        : null;
+      if (applyButton) {
+        if (applyButton.disabled) return;
+        await applyKindIdentifierDraft(applyButton.dataset.kindIdentifierApply || '');
+        return;
       }
-      if (!Array.isArray(keyAttrs) || !keyAttrs.length) return;
 
-      if (toggleKindIdentifierForMatchingKeys(keyAttrs)) {
-        const attributeCompletion = completeRelatedKindIdentifierAttributes(cnfState);
-        statusEl.textContent = kindIdentifierStatusMessage();
-        if (attributeCompletion.added) {
-          statusEl.textContent += `; kind identifier attributes added: ${attributeCompletion.added}`;
-        }
-        if (attributeCompletion.removed) {
-          statusEl.textContent += `; kind identifier attributes removed: ${attributeCompletion.removed}`;
-        }
+      const clearButton = event.target && event.target.closest
+        ? event.target.closest('[data-kind-identifier-clear]')
+        : null;
+      if (clearButton) {
+        if (clearButton.disabled) return;
+        const relation = sourceRelationByDraftKey(clearButton.dataset.kindIdentifierClear || '');
+        if (relation) clearKindIdentifierDraft(relation);
         render(activeData);
       }
     }
@@ -2494,23 +3577,10 @@ manager => empid`;
         return;
       }
 
-      const completion = completeRelatedKindIdentifiers(cnfState);
-      const attributeCompletion = completeRelatedKindIdentifierAttributes(cnfState);
       const result = materializeKindRelations(cnfState);
       let message = result.changed
         ? `Kinds created: ${result.count}`
-        : completion.changed || attributeCompletion.changed
-          ? `Kinds updated: ${result.count}`
-          : 'Kinds already created';
-      if (completion.added) {
-        message += `; kind identifiers added: ${completion.added}`;
-      }
-      if (attributeCompletion.added) {
-        message += `; kind identifier attributes added: ${attributeCompletion.added}`;
-      }
-      if (attributeCompletion.removed) {
-        message += `; kind identifier attributes removed: ${attributeCompletion.removed}`;
-      }
+        : 'Kinds already created';
       statusEl.textContent = message;
       render(activeData);
     }
@@ -2564,6 +3634,7 @@ manager => empid`;
     async function compute() {
       statusEl.textContent = 'Running';
       result.innerHTML = '<div class="empty">Computing decomposition...</div>';
+      kindIdentifierDraftSelections.clear();
       try {
         const response = await fetch('/api/analyze', {
           method: 'POST',
@@ -2587,10 +3658,11 @@ manager => empid`;
 
     result.addEventListener('click', handleSectionToggle);
     result.addEventListener('click', handleCnfSave);
+    result.addEventListener('click', handleKindIdentifierAction);
     result.addEventListener('click', handleCreateKinds);
     result.addEventListener('click', handleSixNfExport);
     result.addEventListener('input', handleCnfInput);
-    result.addEventListener('dblclick', handleKindIdentifierDoubleClick);
+    result.addEventListener('change', handleKindIdentifierDraftChange);
     result.addEventListener('focusout', handleCnfChange);
     result.addEventListener('keydown', handleCnfKeydown);
     document.getElementById('runButton').addEventListener('click', compute);
@@ -2599,6 +3671,7 @@ manager => empid`;
       input.value = '';
       activeData = null;
       cnfState = null;
+      kindIdentifierDraftSelections.clear();
       result.innerHTML = '<div class="empty">Compute the combined decomposition to see the result.</div>';
       statusEl.textContent = 'Ready';
     });
@@ -2613,7 +3686,21 @@ manager => empid`;
     helpDialog.addEventListener('click', (event) => {
       if (event.target === helpDialog) closeHelp();
     });
+    jointKindCancelButton.addEventListener('click', () => closeJointKindIdentifierDialog(null));
+    jointKindApplyButton.addEventListener('click', confirmJointKindIdentifierDialog);
+    jointKindDialog.addEventListener('click', (event) => {
+      if (event.target === jointKindDialog) closeJointKindIdentifierDialog(null);
+    });
     document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !jointKindDialog.hidden) {
+        closeJointKindIdentifierDialog(null);
+        return;
+      }
+      if (event.key === 'Enter' && !jointKindDialog.hidden && jointKindDialog.contains(document.activeElement)) {
+        event.preventDefault();
+        confirmJointKindIdentifierDialog();
+        return;
+      }
       if (event.key === 'Escape' && !helpDialog.hidden) closeHelp();
     });
   </script>

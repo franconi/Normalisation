@@ -679,7 +679,7 @@ def schema_from_text(text: str) -> Schema:
     mvds: list[MVD] = []
 
     for line_no, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.split("#", 1)[0].split("--", 1)[0].strip()
+        line = raw_line.split("#", 1)[0].split("--", 1)[0].split(";", 1)[0].strip()
         if not line:
             continue
 

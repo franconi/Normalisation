@@ -198,6 +198,48 @@ class SixNFTests(unittest.TestCase):
             six_nf["relations"][1]["dependencies"],
         )
 
+    def test_six_nf_adds_simple_inclusion_for_single_numbered_suffix_to_base(self):
+        analysis = {
+            "per_input_relation": [
+                {
+                    "input_relation": "R",
+                    "attributes": ["A#1", "B#1", "A", "C"],
+                    "nullable": [],
+                    "per_relation_4nf": [
+                        {
+                            "sql_null_relation_name": "R1",
+                            "sql_null_relation": ["A#1", "B#1"],
+                            "renamed_sql_null_relation": ["A#1", "B#1"],
+                            "applicable_fds": ["A#1 -> B#1"],
+                            "applicable_mvds": [],
+                            "four_nf_decomposition": [["A#1", "B#1"]],
+                        },
+                        {
+                            "sql_null_relation_name": "R0",
+                            "sql_null_relation": ["A", "C"],
+                            "renamed_sql_null_relation": ["A", "C"],
+                            "applicable_fds": ["A -> C"],
+                            "applicable_mvds": [],
+                            "four_nf_decomposition": [["A", "C"]],
+                        },
+                    ],
+                }
+            ],
+            "final_decomposition": [["A#1", "B#1"], ["A", "C"]],
+            "inclusion_dependencies": [],
+        }
+
+        six_nf = build_six_nf(analysis)
+
+        self.assertEqual(
+            ["A_C", "A#1_B#1"],
+            [relation["name"] for relation in six_nf["relations"]],
+        )
+        self.assertEqual(
+            ["A#1 => A"],
+            six_nf["cross_relation_inclusion_dependencies"],
+        )
+
     def test_six_nf_carries_source_inclusion_split_across_target_relations(self):
         analysis = analyze_combined_schema(
             schema_from_text(

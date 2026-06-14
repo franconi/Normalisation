@@ -257,7 +257,8 @@ HTML = r"""<!doctype html>
 nullable: B C D
 B -N-> C
 B <-N-> C
-B ->N<- D</textarea>
+B ->N<- D
+C ->>N<<- D</textarea>
       </section>
 
       <section>
@@ -280,7 +281,8 @@ B ->N<- D</textarea>
 nullable: B C D
 B -N-> C
 B <-N-> C
-B ->N<- D`;
+B ->N<- D
+C ->>N<<- D`;
 
     function escapeHtml(value) {
       return String(value)

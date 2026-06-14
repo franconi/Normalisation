@@ -131,9 +131,9 @@ class ExtendedConflictFreeTests(unittest.TestCase):
     def test_text_parser_accepts_fd_and_mvd_lines(self):
         parsed = schema_from_text(
             """
-            attributes: A B C D E
-            AB -> C
-            A ->> D
+            attributes: A B C D E ; declared relation attributes
+            AB -> C ; functional dependency
+            A ->> D ; multivalued dependency
             # comments are ignored
             """
         )

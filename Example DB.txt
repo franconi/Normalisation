@@ -38,7 +38,7 @@ manager => ssn
 relation legal-company: companyID SSN director surname postcode city email
 nullable: companyID SSN director surname
 
-companyID ->N<- SSN                 ;;; check IDs
+companyID ->N<- SSN 
 companyID <-N-> director
 SSN <-N-> surname
 companyID -> director postcode 
@@ -47,17 +47,37 @@ postcode -> city
 companyID ->> email
 SSN ->> email
 
-relation T: K1 K2 A B C
-nullable: K1 K2
-K1 -> A
-K2 -> A
-K1 ->N<- K2
-
 relation R: K A B
 nullable: B
 K -> att(R)
 
-relation: A B C
+relation T: K1 K2 A
+nullable: K1 K2
+K1 ->N<- K2
+K1 -> A
+K2 -> A
+
+relation R: A B 
+relation S: C D
+C => A
+
+
+
+relation T: K1 K2 A   ;;; not extended conflict-free
+nullable: K1 K2
+K1 ->>N<<- K2
+K1 -> A
+K2 -> A
+
+relation R: K1 K2 A   ;;; not extended conflict-free
+K1 -> A
+K2 -> A
+K1 K2 -> A  ;; entailed
+
+relation R: K1 K2 A
+K1 K2 -> A            ;;; K1 -> A and K2 -> A  not entailed
+
+relation: A B C       ;;; not extended conflict-free
 A B -> C
 C -> A
 
@@ -67,5 +87,14 @@ Project_ID -> Project_Name
 Project_ID -> Budget
 Project_ID ->> Consultant
 Project_ID ->> Tool
+
+relation LE: ssn csn
+nullable: ssn csn
+ssn ->N<- csn
+relation PERSON: ssn name
+ssn -> name
+relation COMPANY: csn cname
+csn -> cname
+
 
 

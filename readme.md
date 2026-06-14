@@ -1,6 +1,7 @@
 # The Relational Database Normaliser
 
 This tool takes as input a database schema with SQL nullable attributes, and with key, functional, multivalued, inclusion, disjoint, and covering dependencies, and outputs, whenever formally possible, its sixth normal form.
+Then, it can generate a conceptual normal form with the support of the user selecting the kinds.
 
 #### Declarations:
 
@@ -37,17 +38,17 @@ have the same arity.
 
 ```
   database schema Registry:
-  relation T: ssn empid name hdate phone email dept manager
-  nullable: empid hdate dept manager
+  relation T: ssn empid name hdate phone email dept 
+  nullable: empid hdate dept 
   empid -N-> dept
-  dept <-N-> manager
+  dept <-N-> 
   empid <-N-> hdate
   ssn -> name empid
   ssn ->> phone
   ssn ->> email
   empid -> ssn hdate dept
-  dept -> manager
-  manager => empid
+  dept -> 
+   => empid
 ```
 
 ### Desktop launcher:

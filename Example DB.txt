@@ -133,5 +133,53 @@ relation V: F D G
 ;;; multiple attributes inclusion deps
 
 
+database schema NewRegistry:
+
+relation T: ssn scountry empid name hdate phone email dept manager
+
+nullable: empid hdate dept manager
+
+empid -N-> dept
+dept <-N-> manager
+empid <-N-> hdate
+
+ssn scountry -> name
+ssn scountry ->> phone
+ssn scountry ->> email
+ssn scountry -> empid
+empid -> ssn scountry
+empid -> hdate
+empid -> dept
+dept -> manager
+
+manager => empid
 
 
+database schema source:
+relation T: ssn1  ssn2 name dept address
+ssn1  ssn2 -> name
+ssn1  ssn2 -> dept
+dept -> address
+
+
+database schema source:
+relation T: ssn1  ssn2 name dept mssn1 mssn2
+ssn1  ssn2 -> name
+ssn1  ssn2 -> dept
+dept -> mssn1 mssn2
+mssn1 mssn2 => ssn1  ssn2
+
+database schema source:
+relation T: ssn1  ssn2 name phone email dept mssn1 mssn2
+ssn1  ssn2 -> name dept
+ssn1  ssn2 ->> phone
+ssn1  ssn2 ->> email
+dept -> mssn1 mssn2
+mssn1 mssn2 => ssn1  ssn2
+
+
+database schema general:
+relation R: A B C D E
+A B -> att(R)
+B C -> att(R)
+E -> att(R)

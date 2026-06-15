@@ -91,11 +91,41 @@ class Attribute:
             raise ValueError("attribute name must be non-empty")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class InclusionDependency:
-    lhs: AttrSeq
-    rhs: AttrSeq
+    sources: tuple[AttrSeq, ...]
+    target: AttrSeq
     kind: str = "inclusion"
+
+    def __init__(
+        self,
+        lhs: Iterable[str] | None = None,
+        rhs: Iterable[str] | None = None,
+        kind: str = "inclusion",
+        *,
+        sources: Iterable[Iterable[str]] | None = None,
+        target: Iterable[str] | None = None,
+    ) -> None:
+        source_sequences = tuple(
+            tuple(str(attr) for attr in source)
+            for source in (sources if sources is not None else (tuple(lhs or ()),))
+        )
+        target_sequence = tuple(str(attr) for attr in (target if target is not None else (rhs or ())))
+        object.__setattr__(self, "sources", source_sequences)
+        object.__setattr__(self, "target", target_sequence)
+        object.__setattr__(
+            self,
+            "kind",
+            normalized_inclusion_kind(kind, len(source_sequences)),
+        )
+
+    @property
+    def lhs(self) -> AttrSeq:
+        return self.sources[0] if self.sources else ()
+
+    @property
+    def rhs(self) -> AttrSeq:
+        return self.target
 
 
 @dataclass(frozen=True, init=False)
@@ -404,6 +434,14 @@ def fmt_sequence(values: Iterable[str]) -> str:
     return "".join(sequence)
 
 
+def normalized_inclusion_kind(kind: str, source_count: int) -> str:
+    if source_count == 1 and kind == "disjoint":
+        return "inclusion"
+    if source_count == 1 and kind == "covering":
+        return "equality"
+    return kind
+
+
 def dependency_attrs(dep: FD | MVD) -> AttrSet:
     return dep.lhs | dep.rhs
 
@@ -413,7 +451,11 @@ def sql_null_dependency_attrs(dep: SQLNullDependency) -> AttrSet:
 
 
 def inclusion_dependency_attrs(dep: InclusionDependency) -> AttrSet:
-    return frozenset(dep.lhs) | frozenset(dep.rhs)
+    return frozenset(
+        attr
+        for source in dep.sources
+        for attr in source
+    ) | frozenset(dep.target)
 
 
 def applicable_fds(relation: AttrSet, fds: Iterable[FD]) -> tuple[FD, ...]:
@@ -735,7 +777,8 @@ def sql_null_dependency_text(dep: SQLNullDependency) -> str:
 
 
 def inclusion_dependency_text(dep: InclusionDependency) -> str:
-    return f"{fmt_sequence(dep.lhs)} {inclusion_dependency_symbol(dep.kind)} {fmt_sequence(dep.rhs)}"
+    sources = " | ".join(fmt_sequence(source) for source in dep.sources)
+    return f"{sources} {inclusion_dependency_symbol(dep.kind)} {fmt_sequence(dep.target)}"
 
 
 def inclusion_dependency_symbol(kind: str) -> str:
@@ -746,6 +789,17 @@ def inclusion_dependency_symbol(kind: str) -> str:
     if kind == "disjoint":
         return "x=>"
     return "=>"
+
+
+def inclusion_dependency_payload(dep: InclusionDependency) -> dict[str, object]:
+    return {
+        "kind": dep.kind,
+        "sources": [list(source) for source in dep.sources],
+        "target": list(dep.target),
+        "lhs": list(dep.lhs),
+        "rhs": list(dep.rhs),
+        "text": inclusion_dependency_text(dep),
+    }
 
 
 def relation_contains_dependency(relation: InputRelation, dep_attrs: AttrSet) -> bool:
@@ -911,6 +965,16 @@ def containing_relation_names_for_sequence(
     return containing_relation_names(input_relations, frozenset(attrs))
 
 
+def relation_contains_inclusion_dependency_part(
+    relation: InputRelation,
+    dep: InclusionDependency,
+) -> bool:
+    return relation_contains_dependency(relation, frozenset(dep.target)) or any(
+        relation_contains_dependency(relation, frozenset(source))
+        for source in dep.sources
+    )
+
+
 def validate_inclusion_dependency(
     database_schema: DatabaseSchema,
     dep: InclusionDependency,
@@ -918,16 +982,27 @@ def validate_inclusion_dependency(
     relation_name: str | None = None,
 ) -> None:
     location = f" in relation {relation_name}" if relation_name else ""
-    if not dep.lhs or not dep.rhs:
+    if not dep.sources or any(not source for source in dep.sources) or not dep.target:
         raise ValueError(
             f"inclusion dependency {inclusion_dependency_text(dep)}{location} "
-            "must have non-empty sides"
+            "must have non-empty sources and target"
         )
-    if len(dep.lhs) != len(dep.rhs):
+    if dep.kind in {"inclusion", "equality"} and len(dep.sources) != 1:
         raise ValueError(
             f"inclusion dependency {inclusion_dependency_text(dep)}{location} "
-            "must have the same number of attributes on both sides"
+            "must have exactly one source"
         )
+    if dep.kind in {"covering", "disjoint"} and len(dep.sources) < 1:
+        raise ValueError(
+            f"inclusion dependency {inclusion_dependency_text(dep)}{location} "
+            "must have at least one source"
+        )
+    for source in dep.sources:
+        if len(source) != len(dep.target):
+            raise ValueError(
+                f"inclusion dependency {inclusion_dependency_text(dep)}{location} "
+                "must have the same number of attributes in each source and target"
+            )
 
     unknown = inclusion_dependency_attrs(dep) - database_schema.attributes
     if unknown:
@@ -936,24 +1011,25 @@ def validate_inclusion_dependency(
             f"uses unknown attributes: {sorted(unknown)}"
         )
 
-    lhs_relations = containing_relation_names_for_sequence(
-        database_schema.relations,
-        dep.lhs,
-    )
-    if not lhs_relations:
-        raise ValueError(
-            f"inclusion dependency {inclusion_dependency_text(dep)}{location} "
-            "has a left side that is not contained in one relation"
+    for source in dep.sources:
+        source_relations = containing_relation_names_for_sequence(
+            database_schema.relations,
+            source,
         )
+        if not source_relations:
+            raise ValueError(
+                f"inclusion dependency {inclusion_dependency_text(dep)}{location} "
+                "has a source that is not contained in one relation"
+            )
 
-    rhs_relations = containing_relation_names_for_sequence(
+    target_relations = containing_relation_names_for_sequence(
         database_schema.relations,
-        dep.rhs,
+        dep.target,
     )
-    if not rhs_relations:
+    if not target_relations:
         raise ValueError(
             f"inclusion dependency {inclusion_dependency_text(dep)}{location} "
-            "has a right side that is not contained in one relation"
+            "has a target that is not contained in one relation"
         )
 
 
@@ -1230,10 +1306,7 @@ def analyze_input_relation(
                 database_schema.inclusion_dependencies,
                 input_relation.inclusion_dependencies,
             )
-            if (
-                relation_contains_dependency(input_relation, frozenset(dep.lhs))
-                or relation_contains_dependency(input_relation, frozenset(dep.rhs))
-            )
+            if relation_contains_inclusion_dependency_part(input_relation, dep)
         ],
         "sql_null_stage": sql_output,
         "per_relation_4nf": per_relation,
@@ -1310,11 +1383,7 @@ def analyze_combined_schema(schema: CombinedSchema) -> dict[str, object]:
                     dependency_text(mvd, "->>") for mvd in database_schema.mvds
                 ],
                 "inclusion_dependencies": [
-                    {
-                        "lhs": list(dep.lhs),
-                        "rhs": list(dep.rhs),
-                        "text": inclusion_dependency_text(dep),
-                    }
+                    inclusion_dependency_payload(dep)
                     for dep in database_schema.inclusion_dependencies
                 ],
             }
@@ -1358,11 +1427,7 @@ def analyze_combined_schema(schema: CombinedSchema) -> dict[str, object]:
             for mvd in all_mvds(schema)
         ],
         "inclusion_dependencies": [
-            {
-                "lhs": list(dep.lhs),
-                "rhs": list(dep.rhs),
-                "text": inclusion_dependency_text(dep),
-            }
+            inclusion_dependency_payload(dep)
             for dep in all_inclusion_dependencies(schema)
         ],
         "per_input_relation": per_input_relation,
@@ -1426,6 +1491,25 @@ def parse_attribute_sequence_with_known(
     if known_attributes and unknown:
         raise ValueError(f"line {line_no}: unknown attributes {sorted(unknown)}")
     return parsed
+
+
+def parse_inclusion_sources_with_known(
+    text: str,
+    known_attributes: AttrSet,
+    line_no: int,
+) -> tuple[AttrSeq, ...]:
+    source_texts = [item.strip() for item in text.split("|")]
+    if any(not item for item in source_texts):
+        raise ValueError(f"line {line_no}: inclusion dependency source must be non-empty")
+    return tuple(
+        parse_attribute_sequence_with_known(
+            source_text,
+            known_attributes,
+            line_no,
+            allow_empty=False,
+        )
+        for source_text in source_texts
+    )
 
 
 def parse_dep_attribute_set(text: str, known_attributes: AttrSet, line_no: int) -> AttrSet:
@@ -1882,19 +1966,20 @@ def schema_from_text(text: str) -> CombinedSchema:
                 "x=>": "disjoint",
                 "=>": "inclusion",
             }[symbol]
-            lhs = parse_attribute_sequence_with_known(
+            sources = parse_inclusion_sources_with_known(
                 inclusion_match.group(1),
                 known_attributes,
                 line_no,
-                allow_empty=False,
             )
-            rhs = parse_attribute_sequence_with_known(
+            target = parse_attribute_sequence_with_known(
                 inclusion_match.group(3),
                 known_attributes,
                 line_no,
                 allow_empty=False,
             )
-            current.inclusion_dependencies.append(InclusionDependency(lhs, rhs, kind))
+            current.inclusion_dependencies.append(
+                InclusionDependency(sources=sources, target=target, kind=kind)
+            )
             continue
 
         fd_mvd_match = re.match(r"^(.*?)\s*(->>|↠|-->>|->)\s*(.*?)$", line)
@@ -2010,6 +2095,15 @@ def parse_json_attr_sequence(value: object) -> AttrSeq:
     )
 
 
+def parse_json_inclusion_sources(dep: dict[str, object]) -> tuple[AttrSeq, ...]:
+    if "sources" in dep:
+        raw_sources = dep["sources"]
+        if not isinstance(raw_sources, list):
+            raise ValueError("inclusion dependency sources must be a list")
+        return tuple(parse_json_attr_sequence(source) for source in raw_sources)
+    return (parse_json_attr_sequence(dep["lhs"]),)
+
+
 def parse_json_sql_null_dependencies(data: dict[str, object]) -> list[SQLNullDependency]:
     sql_null_dependencies: list[SQLNullDependency] = []
 
@@ -2062,9 +2156,9 @@ def parse_json_inclusion_dependencies(data: dict[str, object]) -> tuple[Inclusio
         }.get(symbol, "inclusion")
         dependencies.append(
             InclusionDependency(
-                parse_json_attr_sequence(dep["lhs"]),
-                parse_json_attr_sequence(dep["rhs"]),
-                kind,
+                sources=parse_json_inclusion_sources(dep),
+                target=parse_json_attr_sequence(dep.get("target", dep.get("rhs"))),
+                kind=kind,
             )
         )
     return tuple(dependencies)

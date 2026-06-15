@@ -188,8 +188,8 @@ class SixNFTests(unittest.TestCase):
         )
         self.assertEqual(
             [
-                "A#1, A#2 x=> A",
-                "A#1, A#2 o=> A",
+                "A#1 | A#2 x=> A",
+                "A#1 | A#2 o=> A",
             ],
             six_nf["cross_relation_inclusion_dependencies"],
         )

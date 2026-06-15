@@ -113,24 +113,65 @@ def inclusion_symbol(dep: Mapping[str, Any]) -> str:
     text = dep.get("text")
     split = split_dependency_text(text) if text else None
     if split and split["symbol"] in {"==", "o=>", "x=>", "=>"}:
-        return split["symbol"]
+        return normalized_inclusion_symbol(split["symbol"], len(inclusion_sources(dep)))
     symbol = dep.get("symbol")
     if symbol:
-        return str(symbol)
+        return normalized_inclusion_symbol(str(symbol), len(inclusion_sources(dep)))
     kind = dep.get("kind")
     if kind == "equality":
         return "=="
     if kind == "covering":
-        return "o=>"
+        return normalized_inclusion_symbol("o=>", len(inclusion_sources(dep)))
     if kind == "disjoint":
-        return "x=>"
+        return normalized_inclusion_symbol("x=>", len(inclusion_sources(dep)))
     return "=>"
 
 
+def normalized_inclusion_symbol(symbol: str, source_count: int) -> str:
+    if source_count == 1 and symbol == "x=>":
+        return "=>"
+    if source_count == 1 and symbol == "o=>":
+        return "=="
+    return symbol
+
+
+def inclusion_sources(dep: Mapping[str, Any]) -> list[list[str]]:
+    if isinstance(dep.get("sources"), list):
+        return [list(source) for source in dep.get("sources", []) or []]
+    text = dep.get("text")
+    split = split_dependency_text(text) if text else None
+    if split and split["symbol"] in {"==", "o=>", "x=>", "=>"}:
+        return [
+            parse_attribute_side(source.strip())
+            for source in split["lhs"].split("|")
+            if source.strip()
+        ]
+    return [list(dep.get("lhs", []) or [])]
+
+
+def inclusion_target(dep: Mapping[str, Any]) -> list[str]:
+    if isinstance(dep.get("target"), list):
+        return list(dep.get("target", []) or [])
+    text = dep.get("text")
+    split = split_dependency_text(text) if text else None
+    if split and split["symbol"] in {"==", "o=>", "x=>", "=>"}:
+        return parse_attribute_side(split["rhs"])
+    return list(dep.get("rhs", []) or [])
+
+
+def inclusion_attributes(dep: Mapping[str, Any]) -> list[str]:
+    return [
+        attribute
+        for source in inclusion_sources(dep)
+        for attribute in source
+    ] + inclusion_target(dep)
+
+
 def inclusion_text(dep: Mapping[str, Any]) -> str:
-    if dep.get("text"):
-        return str(dep["text"])
-    return f"{fmt_set(dep.get('lhs', []))} {inclusion_symbol(dep)} {fmt_set(dep.get('rhs', []))}"
+    sources = inclusion_sources(dep)
+    target = inclusion_target(dep)
+    source_text = " | ".join(fmt_set(source) for source in sources)
+    return f"{source_text} {inclusion_symbol(dep)} {fmt_set(target)}"
 
 
 def unique_inclusion_dependencies(items: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
@@ -326,17 +367,24 @@ def rename_attribute_for_relation(attribute: str, relation_name: str) -> str:
     return f"{attribute}#{match.group(1)}" if match else attribute
 
 
-def mapped_inclusion(dep: Mapping[str, Any], origin: Mapping[str, Any]) -> dict[str, list[str]]:
+def mapped_inclusion(dep: Mapping[str, Any], origin: Mapping[str, Any]) -> dict[str, Any]:
     relation_name = str(origin.get("perRelation", {}).get("sql_null_relation_name", ""))
+    sources = [
+        [
+            rename_attribute_for_relation(str(attr), relation_name)
+            for attr in source
+        ]
+        for source in inclusion_sources(dep)
+    ]
+    target = [
+        rename_attribute_for_relation(str(attr), relation_name)
+        for attr in inclusion_target(dep)
+    ]
     return {
-        "lhs": [
-            rename_attribute_for_relation(str(attr), relation_name)
-            for attr in dep.get("lhs", [])
-        ],
-        "rhs": [
-            rename_attribute_for_relation(str(attr), relation_name)
-            for attr in dep.get("rhs", [])
-        ],
+        "sources": sources,
+        "target": target,
+        "lhs": sources[0] if sources else [],
+        "rhs": target,
     }
 
 
@@ -455,13 +503,13 @@ def target_base_relation_dependencies(target: Mapping[str, Any], analysis: Mappi
                 dependencies.append(str(dep))
 
         for dep in unique_inclusion_dependencies(analysis.get("inclusion_dependencies", []) or []):
-            dep_attrs = [*dep.get("lhs", []), *dep.get("rhs", [])]
+            dep_attrs = inclusion_attributes(dep)
             if not is_subset(dep_attrs, origin.get("sourceAttributes", set())):
                 continue
             mapped = mapped_inclusion(dep, origin)
-            if is_subset([*mapped["lhs"], *mapped["rhs"]], target_attrs):
+            if is_subset(inclusion_attributes(mapped), target_attrs):
                 dependencies.append(
-                    f"{fmt_set(mapped['lhs'])} {inclusion_symbol(dep)} {fmt_set(mapped['rhs'])}"
+                    inclusion_text({**mapped, "kind": dep.get("kind"), "symbol": inclusion_symbol(dep)})
                 )
 
     return [str(dep) for dep in unique_dependencies(dependencies)]
@@ -523,10 +571,10 @@ def target_generated_numbered_suffix_inclusions(
     dependencies: list[str] = []
     for group in target_qualifying_numbered_suffix_groups(target_relations, analysis):
         if len(group["attributes"]) >= 2:
-            lhs = fmt_set(group["attributes"])
+            sources = " | ".join(fmt_set([attribute]) for attribute in group["attributes"])
             rhs = fmt_set([group["prefix"]])
-            dependencies.append(f"{lhs} x=> {rhs}")
-            dependencies.append(f"{lhs} o=> {rhs}")
+            dependencies.append(f"{sources} x=> {rhs}")
+            dependencies.append(f"{sources} o=> {rhs}")
         elif len(group["attributes"]) == 1 and group.get("base_attribute"):
             dependencies.append(
                 f"{fmt_set(group['attributes'])} => {fmt_set([str(group['base_attribute'])])}"
@@ -542,14 +590,6 @@ def all_target_attributes(target_relations: Iterable[Mapping[str, Any]]) -> set[
     }
 
 
-def inclusion_text_from_parts(
-    dep: Mapping[str, Any],
-    lhs: Iterable[str],
-    rhs: Iterable[str],
-) -> str:
-    return f"{fmt_set(lhs)} {inclusion_symbol(dep)} {fmt_set(rhs)}"
-
-
 def source_inclusions_for_target_cross_relations(
     analysis: Mapping[str, Any],
     target_relations: Iterable[Mapping[str, Any]],
@@ -559,7 +599,7 @@ def source_inclusions_for_target_cross_relations(
     dependencies: list[str] = []
 
     for dep in unique_inclusion_dependencies(analysis.get("inclusion_dependencies", []) or []):
-        dep_attrs = [*dep.get("lhs", []), *dep.get("rhs", [])]
+        dep_attrs = inclusion_attributes(dep)
         mapped_to_origin = False
 
         for target in targets:
@@ -568,13 +608,13 @@ def source_inclusions_for_target_cross_relations(
                     continue
                 mapped_to_origin = True
                 mapped = mapped_inclusion(dep, origin)
-                mapped_attrs = [*mapped["lhs"], *mapped["rhs"]]
+                mapped_attrs = inclusion_attributes(mapped)
                 if not is_subset(mapped_attrs, target_attrs):
                     continue
                 if is_local_inclusion_for_any_relation(mapped, targets):
                     continue
                 dependencies.append(
-                    inclusion_text_from_parts(dep, mapped["lhs"], mapped["rhs"])
+                    inclusion_text({**mapped, "kind": dep.get("kind"), "symbol": inclusion_symbol(dep)})
                 )
 
         if not mapped_to_origin:
@@ -597,7 +637,7 @@ def source_relations(analysis: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def is_local_inclusion_for_attributes(dep: Mapping[str, Any], attributes: Iterable[str]) -> bool:
-    return is_subset([*dep.get("lhs", []), *dep.get("rhs", [])], set(attributes or []))
+    return is_subset(inclusion_attributes(dep), set(attributes or []))
 
 
 def is_local_inclusion_for_any_relation(

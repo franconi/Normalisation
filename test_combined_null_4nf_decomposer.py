@@ -486,6 +486,9 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
         self.assertEqual(
             [
                 {
+                    "kind": "inclusion",
+                    "sources": [["orderCustomerID"]],
+                    "target": ["customerID"],
                     "lhs": ["orderCustomerID"],
                     "rhs": ["customerID"],
                     "text": "orderCustomerID => customerID",
@@ -498,36 +501,95 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
         parsed = schema_from_text(
             """
             database schema Sales:
-            relation Orders: orderID orderCustomerID orderRegion
+            relation Orders: orderID orderCustomerID orderRegion productID productRegion
             relation Customers: customerID region
             orderCustomerID == customerID
             orderRegion o=> region
             orderID x=> orderCustomerID
+            orderCustomerID orderRegion | productID productRegion o=> customerID region
+            orderCustomerID orderRegion | productID productRegion x=> customerID region
             """
         )
 
         self.assertEqual(
-            ["equality", "covering", "disjoint"],
+            ["equality", "equality", "inclusion", "covering", "disjoint"],
             [dep.kind for dep in parsed.database_schemas[0].inclusion_dependencies],
+        )
+        self.assertEqual(
+            [
+                (("orderCustomerID",),),
+                (("orderRegion",),),
+                (("orderID",),),
+                (
+                    ("orderCustomerID", "orderRegion"),
+                    ("productID", "productRegion"),
+                ),
+                (
+                    ("orderCustomerID", "orderRegion"),
+                    ("productID", "productRegion"),
+                ),
+            ],
+            [dep.sources for dep in parsed.database_schemas[0].inclusion_dependencies],
+        )
+        self.assertEqual(
+            [
+                ("customerID",),
+                ("region",),
+                ("orderCustomerID",),
+                ("customerID", "region"),
+                ("customerID", "region"),
+            ],
+            [dep.target for dep in parsed.database_schemas[0].inclusion_dependencies],
         )
 
         output = analyze_combined_schema(parsed)
         self.assertEqual(
             [
                 {
+                    "kind": "equality",
+                    "sources": [["orderCustomerID"]],
+                    "target": ["customerID"],
                     "lhs": ["orderCustomerID"],
                     "rhs": ["customerID"],
                     "text": "orderCustomerID == customerID",
                 },
                 {
+                    "kind": "equality",
+                    "sources": [["orderRegion"]],
+                    "target": ["region"],
                     "lhs": ["orderRegion"],
                     "rhs": ["region"],
-                    "text": "orderRegion o=> region",
+                    "text": "orderRegion == region",
                 },
                 {
+                    "kind": "inclusion",
+                    "sources": [["orderID"]],
+                    "target": ["orderCustomerID"],
                     "lhs": ["orderID"],
                     "rhs": ["orderCustomerID"],
-                    "text": "orderID x=> orderCustomerID",
+                    "text": "orderID => orderCustomerID",
+                },
+                {
+                    "kind": "covering",
+                    "sources": [
+                        ["orderCustomerID", "orderRegion"],
+                        ["productID", "productRegion"],
+                    ],
+                    "target": ["customerID", "region"],
+                    "lhs": ["orderCustomerID", "orderRegion"],
+                    "rhs": ["customerID", "region"],
+                    "text": "orderCustomerID, orderRegion | productID, productRegion o=> customerID, region",
+                },
+                {
+                    "kind": "disjoint",
+                    "sources": [
+                        ["orderCustomerID", "orderRegion"],
+                        ["productID", "productRegion"],
+                    ],
+                    "target": ["customerID", "region"],
+                    "lhs": ["orderCustomerID", "orderRegion"],
+                    "rhs": ["customerID", "region"],
+                    "text": "orderCustomerID, orderRegion | productID, productRegion x=> customerID, region",
                 },
             ],
             output["inclusion_dependencies"],

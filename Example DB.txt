@@ -21,6 +21,13 @@ manager => empid
 
 
 database schema source:
+relation T: ssn name dept address
+ssn -> name
+ssn -> dept
+dept -> address
+
+
+database schema source:
 relation T: ssn name dept manager
 ssn -> name
 ssn -> dept
@@ -57,6 +64,7 @@ K1 ->N<- K2
 K1 -> A
 K2 -> A
 
+;;; kind id question when FK (IDs) exists, maybe ssn special case appears
 relation R: A B 
 relation S: C D
 C => A
@@ -95,6 +103,35 @@ relation PERSON: ssn name
 ssn -> name
 relation COMPANY: csn cname
 csn -> cname
+
+;;; to fix
+database schema ssn:
+relation person: ssn firstname lastname dob pob 
+ssn -> att(person)
+relation socialSecurityNumber: socialSecurityNumber responsible expiration
+socialSecurityNumber -> att(socialSecurityNumber)
+socialSecurityNumber => ssn
+
+;;; fix the preorder
+
+;;; to study
+relation LE: ID, name
+ID -> att(LE)
+relation PERSON: PID, ssn
+PID -> att(PERSON)
+relation COMPANY: CID, csn
+CID -> att(COMPANY)
+(PID) (CID) o=> ID
+
+
+relation T: A B C
+relation S: A D E
+relation V: F D G
+
+
+
+;;; multiple attributes inclusion deps
+
 
 
 

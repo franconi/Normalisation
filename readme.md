@@ -38,17 +38,17 @@ have the same arity.
 
 ```
   database schema Registry:
-  relation T: ssn empid name hdate phone email dept 
-  nullable: empid hdate dept 
+  relation T: ssn empid name hdate phone email dept manager
+  nullable: empid hdate dept manager
   empid -N-> dept
-  dept <-N-> 
+  dept <-N-> manager
   empid <-N-> hdate
   ssn -> name empid
   ssn ->> phone
   ssn ->> email
   empid -> ssn hdate dept
-  dept -> 
-   => empid
+  dept -> manager
+  manager => empid
 ```
 
 ### Desktop launcher:

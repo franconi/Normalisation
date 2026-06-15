@@ -17,17 +17,17 @@ Lines may end with comments prefixed by `;`, `#`, or `--`.
 
 #### Dependency syntax:
 
-- functional dependencies: `A **…** **->** B **…**`
-- key-style functional dependencies: `A **…** **->** att(R)`
-- multivalued dependencies: `A **…** **->>** B **…**`
-- implies SQL-null dependencies: `A **-N->** B`
-- jointly SQL-null dependencies: `A **<-N->** B`
-- alternative SQL-null dependencies: `A **->N<-** B`
-- existential SQL-null dependencies: `A **->>N<<-** B`
-- inclusion dependencies: `A **…** **=>** B **…**`
-- equality inclusion dependencies: `A **…** **==** B **…**`
-- covering inclusion dependencies: `A **…** **|** B **…** **o=> C** **…**`
-- disjoint inclusion dependencies: `A **…** **|** B **…** **x=> C** **…**`
+- functional dependencies: `A … -> B …`
+- key-style functional dependencies: `A … -> att(R)`
+- multivalued dependencies: `A … ->> B …`
+- implies SQL-null dependencies: `A -N-> B`
+- jointly SQL-null dependencies: `A <-N-> B`
+- alternative SQL-null dependencies: `A ->N<- B`
+- existential SQL-null dependencies: `A ->>N<<- B`
+- inclusion dependencies: `A … => B …`
+- equality inclusion dependencies: `A … == B …`
+- covering inclusion dependencies: `A … | B … o=> C …`
+- disjoint inclusion dependencies: `A … | B … x=> C …`
 
 A,B,C are attributes, R is a relation. Join dependencies (FDs and MVDs) and SQL-null dependencies must be contained in
 one relation. For inclusion dependencies, each source must be contained in one

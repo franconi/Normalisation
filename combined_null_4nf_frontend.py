@@ -28,7 +28,7 @@ HTML = r"""<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Normaliser</title>
+  <title>Conceptual Normal Form</title>
   <style>
     :root {
       color-scheme: light;
@@ -89,15 +89,54 @@ HTML = r"""<!doctype html>
     }
     .layout {
       display: grid;
-      grid-template-columns: minmax(360px, 0.86fr) minmax(500px, 1.14fr);
-      gap: 16px;
-      align-items: start;
+      grid-template-columns: minmax(240px, var(--input-pane-size, 42%)) 16px minmax(280px, 1fr);
+      gap: 0;
+      align-items: stretch;
     }
-    section {
+    .pane {
       min-width: 0;
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .pane-splitter {
+      appearance: none;
+      width: 16px;
+      min-width: 16px;
+      border: 0;
+      background: transparent;
+      cursor: col-resize;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 0;
+      touch-action: none;
+      align-self: stretch;
+    }
+    .pane-splitter::before {
+      content: "";
+      width: 2px;
+      margin: 8px 0;
+      border-radius: 999px;
+      background: var(--line);
+      transition: background 120ms ease, width 120ms ease;
+    }
+    .pane-splitter:hover::before,
+    .pane-splitter:focus-visible::before,
+    body.pane-resizing .pane-splitter::before {
+      width: 4px;
+      background: var(--accent);
+    }
+    .pane-splitter:focus-visible {
+      outline: 2px solid rgba(15, 111, 115, 0.28);
+      outline-offset: 2px;
+    }
+    body.pane-resizing {
+      cursor: col-resize;
+      user-select: none;
     }
     .panel-head {
       min-height: 50px;
@@ -146,7 +185,8 @@ HTML = r"""<!doctype html>
     textarea {
       display: block;
       width: 100%;
-      min-height: 590px;
+      height: clamp(590px, calc(100vh - 150px), 760px);
+      min-height: 0;
       resize: vertical;
       border: 0;
       padding: 14px;
@@ -155,10 +195,14 @@ HTML = r"""<!doctype html>
       color: var(--ink);
       font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       tab-size: 2;
+      overflow: auto;
     }
     .result {
       padding: 14px;
-      min-height: 590px;
+      height: clamp(590px, calc(100vh - 150px), 760px);
+      min-height: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
     }
     .empty {
       padding: 12px;
@@ -757,9 +801,11 @@ HTML = r"""<!doctype html>
       main { width: min(100vw - 20px, 760px); padding: 18px 0; }
       header, .panel-head { align-items: stretch; flex-direction: column; }
       .layout, .summary, .grid, .relation-grid, .primary-grid, .context-grid { grid-template-columns: 1fr; }
+      .layout { gap: 16px; }
+      .pane-splitter { display: none; }
       .controls { justify-content: flex-start; }
       .header-actions { justify-content: flex-start; }
-      textarea, .result { min-height: 420px; }
+      textarea, .result { height: 420px; min-height: 420px; }
       .status { white-space: normal; }
       .help-dialog { padding: 14px; }
       .help-panel { max-height: calc(100vh - 28px); }
@@ -769,40 +815,31 @@ HTML = r"""<!doctype html>
 <body>
   <main>
     <header>
-      <h1>Normaliser</h1>
+      <h1>Conceptual Normal Form</h1>
       <div class="header-actions">
         <button id="helpButton" type="button">Help</button>
         <div id="status" class="status">Ready</div>
       </div>
     </header>
 
-    <div class="layout">
-      <section>
+    <div id="paneLayout" class="layout">
+      <section class="pane input-pane">
         <div class="panel-head">
           <h2>Input</h2>
           <div class="controls">
-            <label class="file-label" for="fileInput">Import Schema</label>
+            <label class="file-label" for="fileInput">Load</label>
             <input id="fileInput" type="file" accept=".txt,text/plain">
             <button id="sampleButton" type="button">Sample</button>
             <button id="clearButton" type="button">Clear</button>
-            <button id="runButton" class="primary" type="button">Normalise</button>
+            <button id="runButton" class="primary" type="button">CNF</button>
           </div>
         </div>
-        <textarea id="input" spellcheck="false">database schema Registry:
-relation T: ssn empid name hdate phone email dept manager
-nullable: empid hdate dept manager
-empid -N-> dept
-dept &lt;-N-&gt; manager
-empid &lt;-N-&gt; hdate
-ssn -&gt; name empid
-ssn -&gt;&gt; phone
-ssn -&gt;&gt; email
-empid -&gt; ssn hdate dept
-dept -&gt; manager
-manager =&gt; empid</textarea>
+        <textarea id="input" spellcheck="false" wrap="off"></textarea>
       </section>
 
-      <section>
+      <button id="paneSplitter" class="pane-splitter" type="button" aria-label="Resize input and result panes" aria-orientation="vertical" role="separator" tabindex="0"></button>
+
+      <section class="pane result-pane">
         <div class="panel-head">
           <h2>Result</h2>
         </div>
@@ -839,6 +876,8 @@ manager =&gt; empid</textarea>
   <script>
     const input = document.getElementById('input');
     const result = document.getElementById('result');
+    const paneLayout = document.getElementById('paneLayout');
+    const paneSplitter = document.getElementById('paneSplitter');
     const statusEl = document.getElementById('status');
     const helpButton = document.getElementById('helpButton');
     const helpDialog = document.getElementById('helpDialog');
@@ -854,6 +893,12 @@ manager =&gt; empid</textarea>
     let activeJointKindDialog = null;
     const sectionCollapseState = {};
     const kindIdentifierDraftSelections = new Map();
+    const paneResize = {
+      active: false,
+      pointerId: null,
+      minInput: 240,
+      minResult: 280,
+    };
 
     const sample = `database schema Registry:
 relation T: ssn empid name hdate phone email dept manager
@@ -867,6 +912,107 @@ ssn ->> email
 empid -> ssn hdate dept
 dept -> manager
 manager => empid`;
+
+    function paneResizeIsEnabled() {
+      return Boolean(paneLayout && paneSplitter && window.matchMedia('(min-width: 921px)').matches);
+    }
+
+    function paneResizeMetrics() {
+      const layoutRect = paneLayout.getBoundingClientRect();
+      const splitterWidth = paneSplitter.getBoundingClientRect().width || 16;
+      const maxInput = layoutRect.width - splitterWidth - paneResize.minResult;
+      return {
+        layoutRect,
+        splitterWidth,
+        minInput: paneResize.minInput,
+        maxInput: Math.max(paneResize.minInput, maxInput),
+      };
+    }
+
+    function currentInputPaneWidth() {
+      const layoutRect = paneLayout.getBoundingClientRect();
+      const splitterRect = paneSplitter.getBoundingClientRect();
+      return splitterRect.left - layoutRect.left;
+    }
+
+    function setInputPaneWidth(width) {
+      if (!paneResizeIsEnabled()) return;
+      const metrics = paneResizeMetrics();
+      const next = Math.min(metrics.maxInput, Math.max(metrics.minInput, width));
+      paneLayout.style.setProperty('--input-pane-size', `${Math.round(next)}px`);
+      paneSplitter.setAttribute('aria-valuemin', String(Math.round(metrics.minInput)));
+      paneSplitter.setAttribute('aria-valuemax', String(Math.round(metrics.maxInput)));
+      paneSplitter.setAttribute('aria-valuenow', String(Math.round(next)));
+    }
+
+    function resizePaneAt(clientX) {
+      const {layoutRect} = paneResizeMetrics();
+      setInputPaneWidth(clientX - layoutRect.left);
+    }
+
+    function stopPaneResize(event) {
+      if (!paneResize.active) return;
+      paneResize.active = false;
+      document.body.classList.remove('pane-resizing');
+      window.removeEventListener('pointermove', handlePaneResize);
+      window.removeEventListener('pointerup', stopPaneResize);
+      window.removeEventListener('pointercancel', stopPaneResize);
+      if (paneResize.pointerId !== null && paneSplitter.releasePointerCapture) {
+        try {
+          paneSplitter.releasePointerCapture(paneResize.pointerId);
+        } catch (error) {
+          // Pointer capture can already be released by the browser.
+        }
+      }
+      paneResize.pointerId = null;
+      if (event && event.preventDefault) event.preventDefault();
+    }
+
+    function handlePaneResize(event) {
+      if (!paneResize.active) return;
+      resizePaneAt(event.clientX);
+      event.preventDefault();
+    }
+
+    function startPaneResize(event) {
+      if (!paneResizeIsEnabled()) return;
+      if (event.button !== undefined && event.button !== 0) return;
+      paneResize.active = true;
+      paneResize.pointerId = event.pointerId;
+      document.body.classList.add('pane-resizing');
+      if (paneSplitter.setPointerCapture && event.pointerId !== undefined) {
+        try {
+          paneSplitter.setPointerCapture(event.pointerId);
+        } catch (error) {
+          // Pointer capture is optional; window listeners keep resizing usable.
+        }
+      }
+      resizePaneAt(event.clientX);
+      window.addEventListener('pointermove', handlePaneResize);
+      window.addEventListener('pointerup', stopPaneResize);
+      window.addEventListener('pointercancel', stopPaneResize);
+      event.preventDefault();
+    }
+
+    function handlePaneSplitterKeydown(event) {
+      if (!paneResizeIsEnabled()) return;
+      const step = event.shiftKey ? 80 : 24;
+      const metrics = paneResizeMetrics();
+      const current = currentInputPaneWidth();
+      let next = null;
+      if (event.key === 'ArrowLeft') next = current - step;
+      if (event.key === 'ArrowRight') next = current + step;
+      if (event.key === 'Home') next = metrics.minInput;
+      if (event.key === 'End') next = metrics.maxInput;
+      if (next === null) return;
+      setInputPaneWidth(next);
+      event.preventDefault();
+    }
+
+    function constrainPaneResize() {
+      if (!paneResizeIsEnabled()) return;
+      setInputPaneWidth(currentInputPaneWidth());
+    }
 
     function escapeHtml(value) {
       return String(value)
@@ -1514,8 +1660,18 @@ manager => empid`;
         return false;
       }
 
+      const refreshGeneratedKinds = hasGeneratedKindRelations(cnfState);
       for (const relation of cnfState.relations || []) {
-        if (relation.name === oldName) relation.name = cleanName;
+        if (relation.name === oldName) {
+          if (isGeneratedKindRelation(relation)) {
+            if (cleanName === generatedKindRelationAutoName(relation)) {
+              delete relation.custom_generated_kind_relation_name;
+            } else {
+              relation.custom_generated_kind_relation_name = true;
+            }
+          }
+          relation.name = cleanName;
+        }
         relation.dependencies = (relation.dependencies || [])
           .map(dep => rewriteDependencyRelationName(dep, oldName, cleanName));
         if (Array.isArray(relation.kind_identifiers)) {
@@ -1527,6 +1683,7 @@ manager => empid`;
           setRelationKindIdentifierObjects(relation, renamedKindIdentifiers);
         }
       }
+      if (refreshGeneratedKinds) materializeKindRelations(cnfState);
       statusEl.textContent = 'Conceptual relation renamed';
       return true;
     }
@@ -3717,9 +3874,20 @@ manager => empid`;
       return rootKindRelationName([relation.attributes || []]);
     }
 
+    function generatedKindRelationOriginalAutoName(relation) {
+      if (!relation || !Array.isArray(relation.original_attributes)) return '';
+      return rootKindRelationName([relation.original_attributes || []]);
+    }
+
     function customGeneratedKindRelationName(relation) {
       if (!relation || !relation.name) return '';
-      return relation.name === generatedKindRelationAutoName(relation)
+      if (relation.custom_generated_kind_relation_name) return relation.name;
+      const automaticNames = unique([
+        generatedKindRelationAutoName(relation),
+        generatedKindRelationOriginalAutoName(relation),
+        relation.original_name || '',
+      ]);
+      return automaticNames.includes(relation.name)
         ? ''
         : relation.name;
     }
@@ -3752,6 +3920,7 @@ manager => empid`;
       return {
         ...expectedRelation,
         name: preservedName,
+        custom_generated_kind_relation_name: true,
         dependencies: uniqueDependencies((expectedRelation.dependencies || [])
           .map(dep => rewriteDependencyRelationName(dep, expectedRelation.name, preservedName))),
       };
@@ -4387,6 +4556,9 @@ manager => empid`;
     result.addEventListener('change', handleKindIdentifierDraftChange);
     result.addEventListener('focusout', handleCnfChange);
     result.addEventListener('keydown', handleCnfKeydown);
+    paneSplitter.addEventListener('pointerdown', startPaneResize);
+    paneSplitter.addEventListener('keydown', handlePaneSplitterKeydown);
+    window.addEventListener('resize', constrainPaneResize);
     document.getElementById('runButton').addEventListener('click', compute);
     document.getElementById('sampleButton').addEventListener('click', () => { input.value = sample; });
     document.getElementById('clearButton').addEventListener('click', () => {

@@ -125,13 +125,10 @@ CID -> att(COMPANY)
 
 
 relation T: A B C
-relation S: A D E
-relation V: F D G
-
-
-
-;;; multiple attributes inclusion deps
-
+relation S: D E
+relation V: F G H
+D E => A B
+H => C
 
 database schema NewRegistry:
 

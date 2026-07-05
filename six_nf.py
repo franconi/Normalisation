@@ -61,6 +61,11 @@ def attr_postfix_number(attribute: str) -> int:
     return int(match.group(1)) if match else 0
 
 
+def attr_postfix_suffix(attribute: str) -> str | None:
+    match = re.search(r"#(\d+)$", str(attribute))
+    return match.group(1) if match else None
+
+
 def relation_postfix_number(attributes: Iterable[str]) -> int:
     numbers = [attr_postfix_number(attribute) for attribute in attributes or []]
     return min(numbers) if numbers else 0
@@ -465,9 +470,6 @@ def build_target_relations(analysis: Mapping[str, Any]) -> list[dict[str, Any]]:
                 )
 
     relations = list(by_key.values())
-    for group in target_qualifying_numbered_suffix_groups(relations, analysis):
-        if len(group["attributes"]) >= 2:
-            add_generated_target_prefix_relation(relations, group["prefix"])
 
     return sorted(
         relations,
@@ -475,20 +477,6 @@ def build_target_relations(analysis: Mapping[str, Any]) -> list[dict[str, Any]]:
             relation_postfix_number(relation.get("attributes", [])),
             natural_key(str(relation.get("name", ""))),
         ),
-    )
-
-
-def add_generated_target_prefix_relation(relations: list[dict[str, Any]], attribute: str) -> None:
-    name = f"{attribute}_k"
-    if any(relation.get("name") == name for relation in relations):
-        return
-    relations.append(
-        {
-            "name": name,
-            "attributes": [attribute],
-            "generated_target_relation": True,
-            "origins": [],
-        }
     )
 
 
@@ -516,7 +504,79 @@ def target_base_relation_dependencies(target: Mapping[str, Any], analysis: Mappi
 
 
 def target_relation_dependencies(target: Mapping[str, Any], analysis: Mapping[str, Any]) -> list[str]:
-    return target_base_relation_dependencies(target, analysis)
+    return [
+        str(dep)
+        for dep in unique_dependencies(
+            [
+                *target_base_relation_dependencies(target, analysis),
+                *numbered_suffix_inclusion_duplicates_for_relation(target, analysis),
+            ]
+        )
+    ]
+
+
+def hash_free_source_inclusion_dependencies(
+    analysis: Mapping[str, Any],
+) -> list[Mapping[str, Any]]:
+    dependencies: list[Mapping[str, Any]] = []
+    for dep in unique_inclusion_dependencies(analysis.get("inclusion_dependencies", []) or []):
+        attributes = inclusion_attributes(dep)
+        if not attributes:
+            continue
+        if any(attr_postfix_suffix(attribute) for attribute in attributes):
+            continue
+        dependencies.append(dep)
+    return dependencies
+
+
+def matching_relation_suffixes_for_inclusion(
+    relation: Mapping[str, Any],
+    dep: Mapping[str, Any],
+) -> list[str]:
+    relation_attrs = set(str(attribute) for attribute in relation.get("attributes", []) or [])
+    dep_attrs = list(dict.fromkeys(str(attribute) for attribute in inclusion_attributes(dep)))
+    if not dep_attrs:
+        return []
+
+    common_suffixes: set[str] | None = None
+    for attribute in dep_attrs:
+        suffixes: set[str] = set()
+        for relation_attribute in relation_attrs:
+            match = re.match(r"^(.*)#(\d+)$", relation_attribute)
+            if match and match.group(1) == attribute:
+                suffixes.add(match.group(2))
+        common_suffixes = suffixes if common_suffixes is None else common_suffixes & suffixes
+        if not common_suffixes:
+            return []
+
+    return sorted(common_suffixes, key=lambda value: int(value))
+
+
+def suffixed_inclusion_dependency(dep: Mapping[str, Any], suffix: str) -> dict[str, Any]:
+    sources = [
+        [f"{attribute}#{suffix}" for attribute in source]
+        for source in inclusion_sources(dep)
+    ]
+    target = [f"{attribute}#{suffix}" for attribute in inclusion_target(dep)]
+    return {
+        "kind": dep.get("kind"),
+        "symbol": inclusion_symbol(dep),
+        "sources": sources,
+        "target": target,
+        "lhs": sources[0] if sources else [],
+        "rhs": target,
+    }
+
+
+def numbered_suffix_inclusion_duplicates_for_relation(
+    relation: Mapping[str, Any],
+    analysis: Mapping[str, Any],
+) -> list[str]:
+    dependencies: list[str] = []
+    for dep in hash_free_source_inclusion_dependencies(analysis):
+        for suffix in matching_relation_suffixes_for_inclusion(relation, dep):
+            dependencies.append(inclusion_text(suffixed_inclusion_dependency(dep, suffix)))
+    return [str(dep) for dep in unique_dependencies(dependencies)]
 
 
 def target_functional_dependencies_for_relation(
@@ -568,18 +628,7 @@ def target_generated_numbered_suffix_inclusions(
     target_relations: Iterable[Mapping[str, Any]],
     analysis: Mapping[str, Any],
 ) -> list[str]:
-    dependencies: list[str] = []
-    for group in target_qualifying_numbered_suffix_groups(target_relations, analysis):
-        if len(group["attributes"]) >= 2:
-            sources = " | ".join(fmt_set([attribute]) for attribute in group["attributes"])
-            rhs = fmt_set([group["prefix"]])
-            dependencies.append(f"{sources} x=> {rhs}")
-            dependencies.append(f"{sources} o=> {rhs}")
-        elif len(group["attributes"]) == 1 and group.get("base_attribute"):
-            dependencies.append(
-                f"{fmt_set(group['attributes'])} => {fmt_set([str(group['base_attribute'])])}"
-            )
-    return [str(dep) for dep in unique_dependencies(dependencies)]
+    return []
 
 
 def all_target_attributes(target_relations: Iterable[Mapping[str, Any]]) -> set[str]:

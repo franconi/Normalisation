@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="920" viewBox="0 0 1480 920">
+<defs>
+  <marker id="arrow-blue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/></marker>
+  <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.12"/></filter>
+</defs>
+<style>
+  .title{font:700 24px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#0f172a}
+  .subtitle{font:13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#475569}
+  .box-title{font:700 15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#0f172a}
+  .meta{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#64748b}
+  .section{font:700 12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#334155;text-transform:uppercase;letter-spacing:.04em}
+  .alt-rel{font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#dc2626}
+  .rel{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#334155}
+  .hasse{stroke:#2563eb;stroke-width:2.4;fill:none;marker-end:url(#arrow-blue)}
+</style>
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<text x="42" y="42" class="title">Hasse Diagram After Collapsing Alternative Identifiers</text>
+<text x="42" y="66" class="subtitle">Alternative Identifier connections are merged into one class. Red entries inside a class preserve which relation caused the merge.</text>
+<g transform="translate(42 88)"><line x1="0" y1="0" x2="34" y2="0" stroke="#2563eb" stroke-width="2.4" marker-end="url(#arrow-blue)"/><text x="48" y="4" class="subtitle">Hasse cover edge after collapse</text><rect x="286" y="-10" width="16" height="16" rx="3" fill="#fff5f5" stroke="#dc2626"/><text x="312" y="4" class="subtitle">Alternative Identifier relation kept inside the class</text></g>
+
+<g id="edges">
+<line class="hasse" x1="530.1" y1="428.7" x2="627.4" y2="325.1"/>
+<line class="hasse" x1="1112.2" y1="509.6" x2="886.7" y2="325.1"/>
+<line class="hasse" x1="811.4" y1="467.9" x2="772.6" y2="325.1"/>
+</g>
+<g id="collapsed-classes">
+<g filter="url(#shadow)">
+<rect x="135.0" y="425.0" width="450" height="370" rx="9" fill="#fff" stroke="#cbd5e1"/>
+<text x="360.0" y="452.0" class="box-title" text-anchor="middle">M0: dept#3, empid#3, manager#3, ssn#3</text>
+<text x="360.0" y="472.0" class="meta" text-anchor="middle">C0 + C2 + C3 + C10</text>
+<line x1="149.0" y1="486.0" x2="571.0" y2="486.0" stroke="#e2e8f0"/>
+<text x="153.0" y="509.0" class="section">Alternative Identifier relations</text>
+<rect x="151.0" y="516.0" width="418.0" height="28" rx="6" fill="#fff5f5" stroke="#fecaca"/>
+<text x="162.0" y="534.0" class="alt-rel">dept#3_empid#3</text>
+<text x="558.0" y="534.0" class="rel" text-anchor="end">dept#3, empid#3</text>
+<rect x="151.0" y="549.0" width="418.0" height="28" rx="6" fill="#fff5f5" stroke="#fecaca"/>
+<text x="162.0" y="567.0" class="alt-rel">dept#3_manager#3</text>
+<text x="558.0" y="567.0" class="rel" text-anchor="end">dept#3, manager#3</text>
+<rect x="151.0" y="582.0" width="418.0" height="28" rx="6" fill="#fff5f5" stroke="#fecaca"/>
+<text x="162.0" y="600.0" class="alt-rel">empid#3_ssn#3</text>
+<text x="558.0" y="600.0" class="rel" text-anchor="end">empid#3, ssn#3</text>
+<text x="153.0" y="632.0" class="section">Other relations in class</text>
+<text x="360.0" y="653.0" class="rel" text-anchor="middle">email#3_ssn#3</text>
+<text x="360.0" y="672.0" class="rel" text-anchor="middle">empid#3_hdate#3</text>
+<text x="360.0" y="691.0" class="rel" text-anchor="middle">name#3_ssn#3</text>
+<text x="360.0" y="710.0" class="rel" text-anchor="middle">phone#3_ssn#3</text>
+</g>
+<g filter="url(#shadow)">
+<rect x="545.0" y="82.5" width="390" height="245" rx="9" fill="#fff" stroke="#cbd5e1"/>
+<text x="740.0" y="109.5" class="box-title" text-anchor="middle">M1: empid, manager, ssn</text>
+<text x="740.0" y="129.5" class="meta" text-anchor="middle">C1 + C5 + C20</text>
+<line x1="559.0" y1="143.5" x2="921.0" y2="143.5" stroke="#e2e8f0"/>
+<text x="563.0" y="166.5" class="section">Alternative Identifier relations</text>
+<rect x="561.0" y="173.5" width="358.0" height="28" rx="6" fill="#fff5f5" stroke="#fecaca"/>
+<text x="572.0" y="191.5" class="alt-rel">T</text>
+<text x="908.0" y="191.5" class="rel" text-anchor="end">empid, manager, ssn</text>
+<text x="563.0" y="223.5" class="section">Other relations in class</text>
+<text x="740.0" y="244.5" class="rel" text-anchor="middle">empid_k</text>
+<text x="740.0" y="263.5" class="rel" text-anchor="middle">ssn_k</text>
+</g>
+<g filter="url(#shadow)">
+<rect x="1070.0" y="507.5" width="330" height="205" rx="9" fill="#fff" stroke="#cbd5e1"/>
+<text x="1235.0" y="534.5" class="box-title" text-anchor="middle">M2: ssn#1</text>
+<text x="1235.0" y="554.5" class="meta" text-anchor="middle">C6</text>
+<line x1="1084.0" y1="568.5" x2="1386.0" y2="568.5" stroke="#e2e8f0"/>
+<text x="1088.0" y="593.5" class="section">Other relations in class</text>
+<text x="1235.0" y="614.5" class="rel" text-anchor="middle">email#1_ssn#1</text>
+<text x="1235.0" y="633.5" class="rel" text-anchor="middle">name#1_ssn#1</text>
+<text x="1235.0" y="652.5" class="rel" text-anchor="middle">phone#1_ssn#1</text>
+</g>
+<g filter="url(#shadow)">
+<rect x="655.0" y="465.0" width="390" height="290" rx="9" fill="#fff" stroke="#cbd5e1"/>
+<text x="850.0" y="492.0" class="box-title" text-anchor="middle">M3: empid#2, ssn#2</text>
+<text x="850.0" y="512.0" class="meta" text-anchor="middle">C8 + C11</text>
+<line x1="669.0" y1="526.0" x2="1031.0" y2="526.0" stroke="#e2e8f0"/>
+<text x="673.0" y="549.0" class="section">Alternative Identifier relations</text>
+<rect x="671.0" y="556.0" width="358.0" height="28" rx="6" fill="#fff5f5" stroke="#fecaca"/>
+<text x="682.0" y="574.0" class="alt-rel">empid#2_ssn#2</text>
+<text x="1018.0" y="574.0" class="rel" text-anchor="end">empid#2, ssn#2</text>
+<text x="673.0" y="606.0" class="section">Other relations in class</text>
+<text x="850.0" y="627.0" class="rel" text-anchor="middle">email#2_ssn#2</text>
+<text x="850.0" y="646.0" class="rel" text-anchor="middle">empid#2_hdate#2</text>
+<text x="850.0" y="665.0" class="rel" text-anchor="middle">name#2_ssn#2</text>
+<text x="850.0" y="684.0" class="rel" text-anchor="middle">phone#2_ssn#2</text>
+</g>
+</g></svg>

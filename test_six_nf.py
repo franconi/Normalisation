@@ -138,7 +138,7 @@ class SixNFTests(unittest.TestCase):
             six_nf["relations"],
         )
 
-    def test_six_nf_contains_generated_numbered_suffix_dependencies(self):
+    def test_six_nf_does_not_generate_numbered_suffix_disjoint_or_covering_dependencies(self):
         analysis = {
             "database_schemas": [
                 {
@@ -183,22 +183,16 @@ class SixNFTests(unittest.TestCase):
         six_nf = build_six_nf(analysis)
 
         self.assertEqual(
-            ["A_k", "A#1_B#1", "A#2_B#2"],
+            ["A#1_B#1", "A#2_B#2"],
             [relation["name"] for relation in six_nf["relations"]],
         )
-        self.assertEqual(
-            [
-                "A#1 | A#2 x=> A",
-                "A#1 | A#2 o=> A",
-            ],
-            six_nf["cross_relation_inclusion_dependencies"],
-        )
+        self.assertEqual([], six_nf["cross_relation_inclusion_dependencies"])
         self.assertEqual(
             ["A#1 -> att(A#1_B#1)"],
-            six_nf["relations"][1]["dependencies"],
+            six_nf["relations"][0]["dependencies"],
         )
 
-    def test_six_nf_adds_simple_inclusion_for_single_numbered_suffix_to_base(self):
+    def test_six_nf_does_not_add_simple_inclusion_for_single_numbered_suffix_to_base(self):
         analysis = {
             "per_input_relation": [
                 {
@@ -235,10 +229,7 @@ class SixNFTests(unittest.TestCase):
             ["A_C", "A#1_B#1"],
             [relation["name"] for relation in six_nf["relations"]],
         )
-        self.assertEqual(
-            ["A#1 => A"],
-            six_nf["cross_relation_inclusion_dependencies"],
-        )
+        self.assertEqual([], six_nf["cross_relation_inclusion_dependencies"])
 
     def test_six_nf_carries_source_inclusion_split_across_target_relations(self):
         analysis = analyze_combined_schema(
@@ -273,7 +264,32 @@ class SixNFTests(unittest.TestCase):
 
         self.assertEqual([], six_nf["cross_relation_inclusion_dependencies"])
         self.assertEqual(
-            ["B => C", "ABC -> att(A_B_C)"],
+            ["ABC -> att(A_B_C)", "B => C"],
+            six_nf["relations"][0]["dependencies"],
+        )
+
+    def test_six_nf_duplicates_source_inclusion_for_matching_numbered_suffix_relation(self):
+        analysis = {
+            "final_decomposition": [["A#1", "B#1", "C#1"]],
+            "inclusion_dependencies": [
+                {
+                    "kind": "inclusion",
+                    "sources": [["B"]],
+                    "target": ["C"],
+                    "lhs": ["B"],
+                    "rhs": ["C"],
+                    "text": "B => C",
+                }
+            ],
+        }
+
+        six_nf = build_six_nf(analysis)
+
+        self.assertEqual(
+            [
+                "B#1 => C#1",
+                "A#1, B#1, C#1 -> att(A#1_B#1_C#1)",
+            ],
             six_nf["relations"][0]["dependencies"],
         )
 

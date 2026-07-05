@@ -1,0 +1,369 @@
+{
+  "kind_identifiers_file": "/Users/franconi/Downloads/kind-identifiers.json",
+  "inclusion_preorder_file": "/Users/franconi/Downloads/inclusion-preorder.json",
+  "selected_equivalence_classes": [
+    {
+      "id": "C0",
+      "attributes": [
+        "dept#3"
+      ],
+      "relations": [
+        "dept#3_empid#3",
+        "dept#3_manager#3"
+      ],
+      "nodes": [
+        {
+          "relation": "dept#3_empid#3",
+          "attributes": [
+            "dept#3"
+          ]
+        },
+        {
+          "relation": "dept#3_manager#3",
+          "attributes": [
+            "dept#3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "attributes": [
+        "empid"
+      ],
+      "relations": [
+        "T",
+        "empid_k"
+      ],
+      "nodes": [
+        {
+          "relation": "T",
+          "attributes": [
+            "empid"
+          ]
+        },
+        {
+          "relation": "empid_k",
+          "attributes": [
+            "empid"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "C2",
+      "attributes": [
+        "empid#3"
+      ],
+      "relations": [
+        "dept#3_empid#3",
+        "empid#3_hdate#3",
+        "empid#3_ssn#3"
+      ],
+      "nodes": [
+        {
+          "relation": "dept#3_empid#3",
+          "attributes": [
+            "empid#3"
+          ]
+        },
+        {
+          "relation": "empid#3_hdate#3",
+          "attributes": [
+            "empid#3"
+          ]
+        },
+        {
+          "relation": "empid#3_ssn#3",
+          "attributes": [
+            "empid#3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "attributes": [
+        "manager#3"
+      ],
+      "relations": [
+        "dept#3_manager#3"
+      ],
+      "nodes": [
+        {
+          "relation": "dept#3_manager#3",
+          "attributes": [
+            "manager#3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "C5",
+      "attributes": [
+        "ssn"
+      ],
+      "relations": [
+        "T",
+        "ssn_k"
+      ],
+      "nodes": [
+        {
+          "relation": "T",
+          "attributes": [
+            "ssn"
+          ]
+        },
+        {
+          "relation": "ssn_k",
+          "attributes": [
+            "ssn"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "C6",
+      "attributes": [
+        "ssn#1"
+      ],
+      "relations": [
+        "email#1_ssn#1",
+        "name#1_ssn#1",
+        "phone#1_ssn#1"
+      ],
+      "nodes": [
+        {
+          "relation": "email#1_ssn#1",
+          "attributes": [
+            "ssn#1"
+          ]
+        },
+        {
+          "relation": "name#1_ssn#1",
+          "attributes": [
+            "ssn#1"
+          ]
+        },
+        {
+          "relation": "phone#1_ssn#1",
+          "attributes": [
+            "ssn#1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "C8",
+      "attributes": [
+        "ssn#2"
+      ],
+      "relations": [
+        "email#2_ssn#2",
+        "empid#2_ssn#2",
+        "name#2_ssn#2",
+        "phone#2_ssn#2"
+      ],
+      "nodes": [
+        {
+          "relation": "email#2_ssn#2",
+          "attributes": [
+            "ssn#2"
+          ]
+        },
+        {
+          "relation": "empid#2_ssn#2",
+          "attributes": [
+            "ssn#2"
+          ]
+        },
+        {
+          "relation": "name#2_ssn#2",
+          "attributes": [
+            "ssn#2"
+          ]
+        },
+        {
+          "relation": "phone#2_ssn#2",
+          "attributes": [
+            "ssn#2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "C10",
+      "attributes": [
+        "ssn#3"
+      ],
+      "relations": [
+        "email#3_ssn#3",
+        "empid#3_ssn#3",
+        "name#3_ssn#3",
+        "phone#3_ssn#3"
+      ],
+      "nodes": [
+        {
+          "relation": "email#3_ssn#3",
+          "attributes": [
+            "ssn#3"
+          ]
+        },
+        {
+          "relation": "empid#3_ssn#3",
+          "attributes": [
+            "ssn#3"
+          ]
+        },
+        {
+          "relation": "name#3_ssn#3",
+          "attributes": [
+            "ssn#3"
+          ]
+        },
+        {
+          "relation": "phone#3_ssn#3",
+          "attributes": [
+            "ssn#3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "C11",
+      "attributes": [
+        "empid#2"
+      ],
+      "relations": [
+        "empid#2_hdate#2",
+        "empid#2_ssn#2"
+      ],
+      "nodes": [
+        {
+          "relation": "empid#2_hdate#2",
+          "attributes": [
+            "empid#2"
+          ]
+        },
+        {
+          "relation": "empid#2_ssn#2",
+          "attributes": [
+            "empid#2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "C20",
+      "attributes": [
+        "manager"
+      ],
+      "relations": [
+        "T"
+      ],
+      "nodes": [
+        {
+          "relation": "T",
+          "attributes": [
+            "manager"
+          ]
+        }
+      ]
+    }
+  ],
+  "hasse_edges": [
+    {
+      "from": "C2",
+      "to": "C1"
+    },
+    {
+      "from": "C3",
+      "to": "C2"
+    },
+    {
+      "from": "C6",
+      "to": "C5"
+    },
+    {
+      "from": "C8",
+      "to": "C5"
+    },
+    {
+      "from": "C10",
+      "to": "C5"
+    },
+    {
+      "from": "C11",
+      "to": "C1"
+    },
+    {
+      "from": "C20",
+      "to": "C1"
+    }
+  ],
+  "alternative_identifier_edges": [
+    {
+      "between": [
+        "C0",
+        "C2"
+      ],
+      "relations": [
+        "dept#3_empid#3"
+      ]
+    },
+    {
+      "between": [
+        "C0",
+        "C3"
+      ],
+      "relations": [
+        "dept#3_manager#3"
+      ]
+    },
+    {
+      "between": [
+        "C1",
+        "C5"
+      ],
+      "relations": [
+        "T"
+      ]
+    },
+    {
+      "between": [
+        "C1",
+        "C20"
+      ],
+      "relations": [
+        "T"
+      ]
+    },
+    {
+      "between": [
+        "C2",
+        "C10"
+      ],
+      "relations": [
+        "empid#3_ssn#3"
+      ]
+    },
+    {
+      "between": [
+        "C5",
+        "C20"
+      ],
+      "relations": [
+        "T"
+      ]
+    },
+    {
+      "between": [
+        "C8",
+        "C11"
+      ],
+      "relations": [
+        "empid#2_ssn#2"
+      ]
+    }
+  ]
+}

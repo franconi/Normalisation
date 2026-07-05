@@ -44,7 +44,6 @@ manager => ssn
 
 relation legal-company: companyID SSN director surname postcode city email
 nullable: companyID SSN director surname
-
 companyID ->N<- SSN 
 companyID <-N-> director
 SSN <-N-> surname
@@ -54,9 +53,16 @@ postcode -> city
 companyID ->> email
 SSN ->> email
 
+
 relation R: K A B
 nullable: B
 K -> att(R)
+
+
+relation R: K A B
+nullable: B
+K -> A
+
 
 relation T: K1 K2 A
 nullable: K1 K2
@@ -111,17 +117,6 @@ ssn -> att(person)
 relation socialSecurityNumber: socialSecurityNumber responsible expiration
 socialSecurityNumber -> att(socialSecurityNumber)
 socialSecurityNumber => ssn
-
-;;; fix the preorder
-
-;;; to study
-relation LE: ID, name
-ID -> att(LE)
-relation PERSON: PID, ssn
-PID -> att(PERSON)
-relation COMPANY: CID, csn
-CID -> att(COMPANY)
-(PID) (CID) o=> ID
 
 
 relation T: A B C
@@ -180,3 +175,159 @@ relation R: A B C D E
 A B -> att(R)
 B C -> att(R)
 E -> att(R)
+
+
+relation LE: ssn csn a
+nullable: ssn csn
+ssn ->N<- csn
+ssn -> a
+csn -> a
+relation PERSON: p-ssn name
+p-ssn -> name
+relation COMPANY: c-csn cname
+c-csn -> cname
+p-ssn == ssn
+c-csn == csn
+
+
+relation R1: K1 A1 B1
+nullable: A1 B1
+
+relation R2: K2 A2 B2
+nullable: A2 B2
+A2 <-N-> B2
+
+relation R3: K3 A3 B3
+nullable: A3 B3
+A3 -N-> B3
+
+relation R4: K4 A4 B4
+nullable: A4 B4
+A4 ->N<- B4
+
+relation R5: K5 A5 B5
+nullable: A5 B5
+A5 ->>N<<- B5
+
+
+relation T: ssn empid name hdate dept manager
+nullable: empid hdate dept manager
+empid -N-> dept
+dept <-N-> manager
+empid <-N-> hdate
+ssn -> name empid
+empid -> ssn hdate dept
+dept -> manager
+manager => empid
+
+ 
+relation R2: K2 A2 B2
+nullable: A2 B2
+A2 <-N-> B2
+
+
+relation UP: A B
+A -> att(UP)
+relation DOWN: A B C
+A -> att(DOWN)
+
+relation UP: A B
+A -> att(UP)
+B -> att(UP)
+relation DOWN: A B C
+A -> att(DOWN)
+B -> att(DOWN)
+
+
+relation UP: A B
+A -> att(UP)
+relation DOWN: A1 B1 C1
+A1 -> att(DOWN)
+A B == A1 B1
+
+relation R1: A B
+A -> att(R1)
+relation R2: A B C
+A -> att(R2)
+relation R3: A B D
+A -> att(R3)
+relation R4: A B C D
+A -> att(R4)
+
+relation R1: A B
+A -> att(R1)
+relation R2: A1 C
+A1 -> att(R2)
+relation R3: A2 D
+A2 -> att(R3)
+relation R4: A3
+A3 -> att(R4)
+A1 => A
+A2 => A
+A3 => A1
+A3 => A2
+
+relation R1: A Z B
+A -> att(R1)
+Z -> att(R1)
+relation R2: A1 Z1 C
+A1 -> att(R2)
+Z1 -> att(R2)
+relation R3: A2 Z2 D
+A2 -> att(R3)
+Z2 -> att(R3)
+relation R4: A3 Z3
+A3 -> att(R4)
+Z3 -> att(R4)
+A1 => A
+A2 => A
+A3 => A1
+A3 => A2
+Z1 => Z
+Z2 => Z
+Z3 => Z1
+Z3 => Z2
+
+relation R1: A Z B
+A -> att(R1)
+Z -> att(R1)
+relation R2: A1 Z1 C
+A1 -> att(R2)
+Z1 -> att(R2)
+relation R3: A2 Z2 D
+A2 -> att(R3)
+Z2 -> att(R3)
+relation R4: A3 Z3
+A3 -> att(R4)
+Z3 -> att(R4)
+A1 => A
+A2 => A
+A3 => A1
+A3 => A2
+Z1 => Z
+Z2 => Z
+Z3 => Z1
+Z3 => Z2
+
+relation R: A Z B C D
+nullable: C D
+A -> att(R)
+Z -> att(R)
+
+relation R1: A AA Z ZZ B
+A -> B
+Z -> ZZ
+relation R2: A1 Z1 C
+relation R3: A2 Z2 D
+relation R4: A3 Z3
+A1 => A
+A2 => A
+A3 => A1
+A3 => A2
+Z1 => Z
+Z2 => Z
+Z3 => Z1
+Z3 => Z2
+
+
+

@@ -51,12 +51,16 @@ from typing import Iterable, Sequence
 from fd_mvd_normalizer import Analyzer as DependencyAnalyzer
 from fd_mvd_normalizer import FD, MVD, Schema as DependencySchema
 from sql_null_decomposer import (
+    NamedSQLNullRelation,
     SQLNullDependency,
     SQLNullSchema,
     analyze_schema as analyze_sql_null_schema,
     dependency_symbol,
     named_sql_null_decomposition,
+    named_sql_null_decomposition_next_suffix,
+    null_taxonomy_structure,
     parse_attribute_list,
+    reduce_null_taxonomy_relations,
     rename_attributes_for_relation,
     validate_schema as validate_sql_null_schema,
 )
@@ -256,10 +260,11 @@ class CombinedSchema:
         name: str = "default",
     ) -> None:
         if database_schemas is None:
-            declared_attributes = frozenset(attributes or ())
+            attribute_values = tuple(attributes or ())
+            declared_attributes = frozenset(attribute_values)
             relations = tuple(input_relations or ())
             if not relations and declared_attributes:
-                relations = (Relation("R", declared_attributes, nullable),)
+                relations = (Relation("R", attribute_values, nullable),)
             database_schemas = (
                 DatabaseSchema(
                     name,
@@ -335,6 +340,7 @@ class CombinedSchema:
 class DatabaseSchemaBuilder:
     name: str
     attributes: AttrSet = frozenset()
+    attribute_objects: tuple[Attribute, ...] = ()
     nullable: AttrSet = frozenset()
     input_relations: list[Relation] = field(default_factory=list)
     nullable_by_relation: dict[str, AttrSet] = field(default_factory=dict)
@@ -347,6 +353,7 @@ class DatabaseSchemaBuilder:
     def is_empty(self) -> bool:
         return (
             not self.attributes
+            and not self.attribute_objects
             and not self.nullable
             and not self.input_relations
             and not self.nullable_by_relation
@@ -362,7 +369,7 @@ class DatabaseSchemaBuilder:
         if input_relations and not attributes:
             attributes = relation_attributes_so_far(attributes, input_relations)
         if not input_relations and attributes:
-            input_relations = [Relation("R", attributes)]
+            input_relations = [Relation("R", self.attribute_objects or attributes)]
         input_relations_tuple = apply_nullable_defaults(
             input_relations,
             self.nullable,
@@ -481,6 +488,108 @@ def fd_closure(lhs: AttrSet, relation: AttrSet, fds: Iterable[FD]) -> AttrSet:
 
 def is_superkey(lhs: AttrSet, relation: AttrSet, fds: Iterable[FD]) -> bool:
     return relation <= fd_closure(lhs, relation, fds)
+
+
+def ordered_attribute_sequence(
+    attributes: AttrSet,
+    preferred_order: Sequence[str] = (),
+) -> AttrSeq:
+    ordered = tuple(attr for attr in preferred_order if attr in attributes)
+    return (
+        *ordered,
+        *tuple(sorted(attributes - frozenset(ordered))),
+    )
+
+
+def minimal_key_sequence(
+    attributes: AttrSet,
+    fds: Iterable[FD],
+    preferred_order: Sequence[str] = (),
+) -> AttrSeq:
+    ordered = ordered_attribute_sequence(attributes, preferred_order)
+    if not ordered:
+        return ()
+    for size in range(1, len(ordered) + 1):
+        for candidate in itertools.combinations(ordered, size):
+            if is_superkey(frozenset(candidate), attributes, fds):
+                return candidate
+    return ordered
+
+
+def null_taxonomy_dependency_target_selector(
+    fds: Iterable[FD],
+    mvds: Iterable[MVD],
+):
+    fd_tuple = tuple(fds)
+    mvd_tuple = tuple(mvds)
+
+    def select(
+        inferior: NamedSQLNullRelation,
+        superior: NamedSQLNullRelation,
+    ) -> dict[str, AttrSeq]:
+        matching_dependencies = []
+        for dependency in itertools.chain(fd_tuple, mvd_tuple):
+            lhs = dependency.lhs & superior.attributes
+            rhs = dependency.rhs & superior.attributes
+            if not lhs or lhs != dependency.lhs or not rhs:
+                continue
+            matching_dependencies.append((lhs, rhs))
+
+        candidates_by_lhs: dict[AttrSet, set[str]] = {}
+        for index, (lhs, rhs) in enumerate(matching_dependencies):
+            original_removable = rhs - lhs
+            if not original_removable:
+                continue
+            protected_lhs_attributes = frozenset(
+                attr
+                for other_index, (other_lhs, _) in enumerate(matching_dependencies)
+                if other_index != index
+                for attr in other_lhs
+            )
+            removable = original_removable - protected_lhs_attributes
+            candidates_by_lhs.setdefault(lhs, set()).update(removable)
+
+        candidates = [
+            (
+                ordered_attribute_sequence(lhs, superior.attribute_order),
+                ordered_attribute_sequence(frozenset(removable), superior.attribute_order),
+            )
+            for lhs, removable in candidates_by_lhs.items()
+        ]
+        candidates = [
+            (lhs, removable)
+            for lhs, removable in candidates
+            if lhs
+        ]
+        candidates.sort(
+            key=lambda item: (
+                len(item[0]),
+                item[0],
+                -len(item[1]),
+                item[1],
+            )
+        )
+        if candidates:
+            return {
+                "choices": [
+                    {
+                        "target": lhs,
+                        "remove": removable,
+                    }
+                    for lhs, removable in candidates
+                ],
+            }
+
+        return {
+            "target": minimal_key_sequence(
+                superior.attributes,
+                fd_tuple,
+                superior.attribute_order,
+            ),
+            "remove": (),
+        }
+
+    return select
 
 
 def is_fd_nontrivial(fd: FD, relation: AttrSet) -> bool:
@@ -719,6 +828,26 @@ def renamed_dependency_text(
     return f"{fmt_set(lhs)} {symbol} {fmt_set(rhs)}"
 
 
+def assumed_key_dependency_text(
+    attributes: Iterable[str],
+    relation_name: str,
+) -> str:
+    return f"{fmt_set(attributes)} -> att({relation_name})"
+
+
+def assumed_key_dependency_if_unconstrained(
+    attributes: AttrSet,
+    relation_name: str,
+    fds: Iterable[FD],
+    mvds: Iterable[MVD],
+) -> tuple[str, ...]:
+    fd_tuple = tuple(fds)
+    mvd_tuple = tuple(mvds)
+    if not attributes or fd_tuple or mvd_tuple:
+        return ()
+    return (assumed_key_dependency_text(attributes, relation_name),)
+
+
 def renamed_relations_for_relation(
     relations: Iterable[AttrSet],
     relation_name: str,
@@ -802,6 +931,62 @@ def inclusion_dependency_payload(dep: InclusionDependency) -> dict[str, object]:
     }
 
 
+def component_inclusion_dependencies(
+    dep: InclusionDependency,
+) -> tuple[InclusionDependency, ...]:
+    if dep.kind != "inclusion" or len(dep.sources) != 1:
+        return ()
+    source = dep.lhs
+    target = dep.target
+    if len(source) <= 1 or len(source) != len(target):
+        return ()
+    return tuple(
+        InclusionDependency(
+            sources=[(source_attr,)],
+            target=(target_attr,),
+            kind="inclusion",
+        )
+        for source_attr, target_attr in zip(source, target)
+    )
+
+
+def inclusion_dependency_closure(
+    dependencies: Iterable[InclusionDependency],
+) -> tuple[InclusionDependency, ...]:
+    return unique_tuple(
+        dep
+        for dependency in dependencies
+        for dep in (dependency, *component_inclusion_dependencies(dependency))
+    )
+
+
+def unique_inclusion_dependency_payloads(
+    items: Iterable[dict[str, object]],
+) -> list[dict[str, object]]:
+    out: list[dict[str, object]] = []
+    seen: set[tuple[object, ...]] = set()
+    for item in items:
+        raw_sources = item.get("sources", [])
+        raw_target = item.get("target", [])
+        source_values = raw_sources if isinstance(raw_sources, (list, tuple)) else []
+        target_values = raw_target if isinstance(raw_target, (list, tuple)) else []
+        sources = tuple(
+            tuple(str(attr) for attr in source)
+            for source in source_values
+            if isinstance(source, (list, tuple))
+        )
+        target = tuple(
+            str(attr)
+            for attr in target_values
+        )
+        key = (item.get("kind"), sources, target)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return out
+
+
 def relation_contains_dependency(relation: InputRelation, dep_attrs: AttrSet) -> bool:
     return dep_attrs <= relation.attributes
 
@@ -866,7 +1051,7 @@ def all_mvds(schema: CombinedSchema) -> tuple[MVD, ...]:
 
 
 def all_inclusion_dependencies(schema: CombinedSchema) -> tuple[InclusionDependency, ...]:
-    return unique_tuple(
+    return inclusion_dependency_closure(
         itertools.chain(
             schema.inclusion_dependencies,
             *(
@@ -1194,6 +1379,7 @@ def analyze_input_relation(
     schema: CombinedSchema,
     database_schema: DatabaseSchema,
     input_relation: InputRelation,
+    sql_null_suffix_start: int = 1,
 ) -> dict[str, object]:
     local_sql_deps = tuple(
         dep
@@ -1218,14 +1404,59 @@ def analyze_input_relation(
             input_relation.mvds,
         )
     )
+    input_assumed_key_fds = assumed_key_dependency_if_unconstrained(
+        input_relation.attributes,
+        input_relation.name,
+        local_fds,
+        local_mvds,
+    )
     sql_schema = SQLNullSchema(
         input_relation.attributes,
         input_relation.nullable,
         local_sql_deps,
         input_relation.name,
+        tuple(attribute.name for attribute in input_relation.attribute_objects),
     )
-    sql_output = analyze_sql_null_schema(sql_schema)
-    sql_relations, _ = named_sql_null_decomposition(sql_schema)
+    null_taxonomy_target_selector = null_taxonomy_dependency_target_selector(
+        local_fds,
+        local_mvds,
+    )
+    sql_output = analyze_sql_null_schema(
+        sql_schema,
+        suffix_start=sql_null_suffix_start,
+        target_attribute_selector=null_taxonomy_target_selector,
+    )
+    original_sql_relations, _ = named_sql_null_decomposition(
+        sql_schema,
+        suffix_start=sql_null_suffix_start,
+    )
+    sql_relations = reduce_null_taxonomy_relations(
+        original_sql_relations,
+        null_taxonomy_target_selector,
+    )
+    next_sql_null_suffix = named_sql_null_decomposition_next_suffix(
+        original_sql_relations,
+        sql_null_suffix_start,
+    )
+    null_taxonomy = null_taxonomy_structure(
+        original_sql_relations,
+        null_taxonomy_target_selector,
+        sql_relations,
+    )
+    null_taxonomy_inclusions = inclusion_dependency_closure(
+        InclusionDependency(
+            sources=dependency["sources"],
+            target=dependency["target"],
+            kind="inclusion",
+        )
+        for dependency in null_taxonomy["inclusion_dependencies"]
+    )
+    local_inclusion_dependencies = inclusion_dependency_closure(
+        itertools.chain(
+            database_schema.inclusion_dependencies,
+            input_relation.inclusion_dependencies,
+        )
+    )
 
     per_relation: list[dict[str, object]] = []
     final_relations: list[AttrSet] = []
@@ -1248,6 +1479,18 @@ def analyze_input_relation(
             sql_relation.nullable_subset,
             sql_relation.name,
         )
+        assumed_key_fds = assumed_key_dependency_if_unconstrained(
+            renamed_relation,
+            sql_relation.name,
+            local_relation_fds,
+            local_relation_mvds,
+        )
+        original_assumed_key_fds = assumed_key_dependency_if_unconstrained(
+            relation,
+            sql_relation.name,
+            local_relation_fds,
+            local_relation_mvds,
+        )
         per_relation.append(
             {
                 "input_relation": input_relation.name,
@@ -1259,11 +1502,11 @@ def analyze_input_relation(
                 "applicable_fds": [
                     renamed_dependency_text(fd, "->", sql_relation.name)
                     for fd in local_relation_fds
-                ],
+                ] + list(assumed_key_fds),
                 "original_applicable_fds": [
                     dependency_text_for_relation(fd, "->", input_relation)
                     for fd in local_relation_fds
-                ],
+                ] + list(original_assumed_key_fds),
                 "applicable_mvds": [
                     renamed_dependency_text(mvd, "->>", sql_relation.name)
                     for mvd in local_relation_mvds
@@ -1298,15 +1541,32 @@ def analyze_input_relation(
         "applicable_fds": [
             dependency_text_for_relation(fd, "->", input_relation)
             for fd in local_fds
-        ],
+        ] + list(input_assumed_key_fds),
         "applicable_mvds": [dependency_text(mvd, "->>") for mvd in local_mvds],
         "applicable_inclusion_dependencies": [
             inclusion_dependency_text(dep)
-            for dep in itertools.chain(
-                database_schema.inclusion_dependencies,
-                input_relation.inclusion_dependencies,
+            for dep in unique_tuple(
+                itertools.chain(
+                    (
+                        dep
+                        for dep in local_inclusion_dependencies
+                        if relation_contains_inclusion_dependency_part(
+                            input_relation,
+                            dep,
+                        )
+                    ),
+                    null_taxonomy_inclusions,
+                )
             )
-            if relation_contains_inclusion_dependency_part(input_relation, dep)
+        ],
+        "null_taxonomy": null_taxonomy,
+        "null_taxonomy_inclusion_dependencies": [
+            inclusion_dependency_text(dep)
+            for dep in null_taxonomy_inclusions
+        ],
+        "null_taxonomy_inclusion_dependency_payloads": [
+            inclusion_dependency_payload(dep)
+            for dep in null_taxonomy_inclusions
         ],
         "sql_null_stage": sql_output,
         "per_relation_4nf": per_relation,
@@ -1314,6 +1574,7 @@ def analyze_input_relation(
         "original_final_decomposition": [
             sorted(rel) for rel in sort_relations(original_final_relations)
         ],
+        "_next_sql_null_suffix": next_sql_null_suffix,
     }
 
 
@@ -1327,11 +1588,20 @@ def analyze_combined_schema(schema: CombinedSchema) -> dict[str, object]:
             "extended_conflict_free_failures": conflict_free["failures"],
         }
 
-    per_input_relation = [
-        analyze_input_relation(schema, database_schema, relation)
-        for database_schema in schema.database_schemas
-        for relation in database_schema.relations
-    ]
+    per_input_relation: list[dict[str, object]] = []
+    next_sql_null_suffix = 1
+    for database_schema in schema.database_schemas:
+        for relation in database_schema.relations:
+            item = analyze_input_relation(
+                schema,
+                database_schema,
+                relation,
+                sql_null_suffix_start=next_sql_null_suffix,
+            )
+            next_sql_null_suffix = int(
+                item.pop("_next_sql_null_suffix", next_sql_null_suffix)
+            )
+            per_input_relation.append(item)
     final_relations = [
         frozenset(relation)
         for item in per_input_relation
@@ -1343,6 +1613,11 @@ def analyze_combined_schema(schema: CombinedSchema) -> dict[str, object]:
         for relation in item["original_final_decomposition"]
     ]
     first_relation = per_input_relation[0]
+    generated_null_taxonomy_inclusions = [
+        payload
+        for item in per_input_relation
+        for payload in item.get("null_taxonomy_inclusion_dependency_payloads", [])
+    ]
 
     output = {
         "attributes": sorted(schema.attributes),
@@ -1426,10 +1701,15 @@ def analyze_combined_schema(schema: CombinedSchema) -> dict[str, object]:
             }
             for mvd in all_mvds(schema)
         ],
-        "inclusion_dependencies": [
-            inclusion_dependency_payload(dep)
-            for dep in all_inclusion_dependencies(schema)
-        ],
+        "inclusion_dependencies": unique_inclusion_dependency_payloads(
+            [
+                *[
+                    inclusion_dependency_payload(dep)
+                    for dep in all_inclusion_dependencies(schema)
+                ],
+                *generated_null_taxonomy_inclusions,
+            ]
+        ),
         "per_input_relation": per_input_relation,
         "sql_null_stage": first_relation["sql_null_stage"],
         "per_relation_4nf": first_relation["per_relation_4nf"],
@@ -1483,7 +1763,7 @@ def parse_attribute_sequence_with_known(
         if "," in value or re.search(r"\s", value):
             parsed = tuple(token for token in re.split(r"[\s,]+", value) if token)
         else:
-            parsed = tuple(value)
+            parsed = tuple(value) if re.fullmatch(r"[A-Z]+", value) else (value,)
 
     if not parsed and not allow_empty:
         raise ValueError(f"line {line_no}: dependency side must be non-empty")
@@ -1601,15 +1881,16 @@ def parse_relation_declaration(
         name = f"R{relation_index}"
         attrs_text = match.group(1)
 
-    attrs = parse_attribute_list(attrs_text)
-    if not attrs:
+    attr_names = parse_attribute_sequence_with_known(
+        attrs_text,
+        known_attributes,
+        line_no,
+        allow_empty=False,
+    )
+    attrs = frozenset(attr_names)
+    if not attr_names:
         raise ValueError(f"line {line_no}: relation {name} must have attributes")
-    unknown = attrs - known_attributes
-    if known_attributes and unknown:
-        raise ValueError(
-            f"line {line_no}: relation {name} uses unknown attributes: {sorted(unknown)}"
-        )
-    return InputRelation(name, attrs)
+    return InputRelation(name, attr_names)
 
 
 def find_input_relation(
@@ -1645,7 +1926,7 @@ def set_relation_nullable(
         input_relations,
         InputRelation(
             relation.name,
-            relation.attributes,
+            relation.attribute_objects,
             nullable,
             relation.sql_null_dependencies,
             relation.fds,
@@ -1667,7 +1948,7 @@ def add_relation_sql_null_dependency(
         input_relations,
         InputRelation(
             relation.name,
-            relation.attributes,
+            relation.attribute_objects,
             relation.nullable,
             relation.sql_null_dependencies + (dependency,),
             relation.fds,
@@ -1689,7 +1970,7 @@ def add_relation_fd(
         input_relations,
         InputRelation(
             relation.name,
-            relation.attributes,
+            relation.attribute_objects,
             relation.nullable,
             relation.sql_null_dependencies,
             relation.fds + (dependency,),
@@ -1711,7 +1992,7 @@ def add_relation_mvd(
         input_relations,
         InputRelation(
             relation.name,
-            relation.attributes,
+            relation.attribute_objects,
             relation.nullable,
             relation.sql_null_dependencies,
             relation.fds,
@@ -1789,7 +2070,7 @@ def apply_nullable_defaults(
     return tuple(
         InputRelation(
             relation.name,
-            relation.attributes,
+            relation.attribute_objects,
             nullable_by_relation.get(
                 relation.name,
                 relation.nullable | (default_nullable & relation.attributes),
@@ -1840,7 +2121,14 @@ def schema_from_text(text: str) -> CombinedSchema:
 
         attrs_match = re.match(r"^(?:attributes|attrs|schema)\s*:\s*(.+)$", line, re.I)
         if attrs_match:
-            current.attributes = parse_attribute_list(attrs_match.group(1))
+            attr_names = parse_attribute_sequence_with_known(
+                attrs_match.group(1),
+                frozenset(),
+                line_no,
+                allow_empty=False,
+            )
+            current.attributes = frozenset(attr_names)
+            current.attribute_objects = tuple(Attribute(name) for name in attr_names)
             continue
 
         relation = parse_relation_declaration(
@@ -2059,7 +2347,15 @@ def parse_json_attr_set(value: object) -> AttrSet:
 
 def parse_json_attributes(value: object) -> tuple[Attribute, ...]:
     if isinstance(value, str):
-        return tuple(Attribute(attr) for attr in sorted(parse_attribute_list(value)))
+        return tuple(
+            Attribute(attr)
+            for attr in parse_attribute_sequence_with_known(
+                value,
+                frozenset(),
+                0,
+                allow_empty=True,
+            )
+        )
     if isinstance(value, list):
         attributes: list[Attribute] = []
         for item in value:
@@ -2192,7 +2488,8 @@ def parse_json_database_schema(
             data.get("database_schema", data.get("schema", default_name)),
         )
     )
-    attributes = parse_json_attr_set(data.get("attributes", []))
+    schema_attribute_objects = parse_json_attributes(data.get("attributes", []))
+    attributes = frozenset(attribute.name for attribute in schema_attribute_objects)
     input_relations: list[InputRelation] = []
     nullable_by_relation: dict[str, AttrSet] = {}
 
@@ -2252,7 +2549,7 @@ def parse_json_database_schema(
         attributes = relation_attributes_so_far(attributes, input_relations)
 
     if not input_relations and attributes:
-        input_relations.append(InputRelation("R", attributes))
+        input_relations.append(InputRelation("R", schema_attribute_objects or attributes))
 
     nullable = parse_json_attr_set(data.get("nullable", []))
     input_relations = list(

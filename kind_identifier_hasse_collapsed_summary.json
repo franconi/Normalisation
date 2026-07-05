@@ -1,0 +1,132 @@
+{
+  "kind_identifiers_file": "/Users/franconi/Downloads/kind-identifiers.json",
+  "inclusion_preorder_file": "/Users/franconi/Downloads/inclusion-preorder.json",
+  "collapsed_classes": [
+    {
+      "id": "M0",
+      "classes": [
+        "C0",
+        "C2",
+        "C3",
+        "C10"
+      ],
+      "attributes": [
+        "dept#3",
+        "empid#3",
+        "manager#3",
+        "ssn#3"
+      ],
+      "alternative_identifier_relations": [
+        {
+          "relation": "dept#3_empid#3",
+          "attributes": [
+            "dept#3",
+            "empid#3"
+          ]
+        },
+        {
+          "relation": "dept#3_manager#3",
+          "attributes": [
+            "dept#3",
+            "manager#3"
+          ]
+        },
+        {
+          "relation": "empid#3_ssn#3",
+          "attributes": [
+            "empid#3",
+            "ssn#3"
+          ]
+        }
+      ],
+      "other_relations": [
+        "email#3_ssn#3",
+        "empid#3_hdate#3",
+        "name#3_ssn#3",
+        "phone#3_ssn#3"
+      ]
+    },
+    {
+      "id": "M1",
+      "classes": [
+        "C1",
+        "C5",
+        "C20"
+      ],
+      "attributes": [
+        "empid",
+        "manager",
+        "ssn"
+      ],
+      "alternative_identifier_relations": [
+        {
+          "relation": "T",
+          "attributes": [
+            "empid",
+            "manager",
+            "ssn"
+          ]
+        }
+      ],
+      "other_relations": [
+        "empid_k",
+        "ssn_k"
+      ]
+    },
+    {
+      "id": "M2",
+      "classes": [
+        "C6"
+      ],
+      "attributes": [
+        "ssn#1"
+      ],
+      "alternative_identifier_relations": [],
+      "other_relations": [
+        "email#1_ssn#1",
+        "name#1_ssn#1",
+        "phone#1_ssn#1"
+      ]
+    },
+    {
+      "id": "M3",
+      "classes": [
+        "C8",
+        "C11"
+      ],
+      "attributes": [
+        "empid#2",
+        "ssn#2"
+      ],
+      "alternative_identifier_relations": [
+        {
+          "relation": "empid#2_ssn#2",
+          "attributes": [
+            "empid#2",
+            "ssn#2"
+          ]
+        }
+      ],
+      "other_relations": [
+        "email#2_ssn#2",
+        "empid#2_hdate#2",
+        "name#2_ssn#2",
+        "phone#2_ssn#2"
+      ]
+    }
+  ],
+  "hasse_edges": [
+    {
+      "from": "M0",
+      "to": "M1"
+    },
+    {
+      "from": "M2",
+      "to": "M1"
+    },
+    {
+      "from": "M3",
+      "to": "M1"
+    }
+  ]
+}

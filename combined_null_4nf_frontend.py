@@ -374,6 +374,31 @@ HTML = r"""<!doctype html>
       background: #fff8d6;
       border-color: #eadc8a;
     }
+    .sql-null-dependencies {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 9px;
+      border-top: 1px solid rgba(151, 124, 42, 0.28);
+    }
+    .sql-null-dependencies h4 {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 680;
+    }
+    .sql-null-dependency-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 0.5fr) minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+    }
+    .sql-null-dependency-name {
+      font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+      padding-top: 4px;
+    }
     .relation-block {
       grid-column: 1 / -1;
       padding: 10px 0 2px;
@@ -544,6 +569,25 @@ HTML = r"""<!doctype html>
     }
     .create-kinds-button {
       min-width: 108px;
+    }
+    .kind-taxonomy-box {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+    .kind-taxonomy-diagram {
+      width: 100%;
+      overflow: auto;
+      padding: 6px 0 2px;
+    }
+    .kind-taxonomy-svg {
+      display: block;
+      min-width: 720px;
+      max-width: 100%;
+      height: auto;
+    }
+    .kind-taxonomy-empty {
+      color: var(--muted);
+      font-size: 13px;
     }
     button.create-kinds-button:disabled {
       background: #eef2f3;
@@ -1433,6 +1477,8 @@ manager => empid`;
         name: cnf.name || 'CNF',
         relations: (cnf.relations || []).map(relation => ensureRelationOriginalNames(relation)),
         cross_relation_inclusion_dependencies: cnf.cross_relation_inclusion_dependencies || [],
+        kind_taxonomy_visible: Boolean(cnf.kind_taxonomy_visible),
+        kind_taxonomy: cnf.kind_taxonomy || null,
       };
     }
 
@@ -1526,14 +1572,14 @@ manager => empid`;
       if (!coverage.ok) {
         return {applicable: false, key: 'missing', label: 'Create Kinds', title: 'Every Conceptual relation must contain at least one selected kind identifier'};
       }
-      if (kindRelationsInSync(cnfState)) {
-        return {applicable: false, key: 'created', label: 'Kinds Created', title: 'All selected kind identifiers have kind relations'};
+      if (!selectedKindIdentifierSets(cnfState).length) {
+        return {applicable: false, key: 'empty', label: 'Create Kinds', title: 'No kind identifiers selected'};
       }
       return {
         applicable: true,
-        key: hasGeneratedKindRelations(cnfState) ? 'stale' : 'ready',
-        label: hasGeneratedKindRelations(cnfState) ? 'Update Kinds' : 'Create Kinds',
-        title: 'Create one kind relation for each root selected kind identifier',
+        key: cnfState.kind_taxonomy_visible ? 'created' : 'ready',
+        label: cnfState.kind_taxonomy_visible ? 'Update Kinds' : 'Create Kinds',
+        title: 'Create the kind taxonomy drawing from the selected kind identifiers',
       };
     }
 
@@ -1542,8 +1588,62 @@ manager => empid`;
       return `<button class="create-kinds-button" type="button" data-create-kinds="true" data-create-kinds-state="${escapeHtml(state.key)}" title="${escapeHtml(state.title)}"${state.applicable ? '' : ' disabled'}>${escapeHtml(state.label)}</button>`;
     }
 
+    function kindIdentifierSaveButtonState(options = {}) {
+      if (!activeData || !cnfState) {
+        return {applicable: false, key: 'unavailable', label: 'Save Kind IDs', title: 'No CNF available'};
+      }
+      const includePending = options.includePending !== false;
+      const pending = includePending ? pendingCnfInputState() : {savable: false, invalid: false};
+      if (pending.invalid) {
+        return {applicable: false, key: 'invalid', label: 'Save Kind IDs', title: 'Fix Conceptual names before saving kind identifiers'};
+      }
+      if (!selectedKindIdentifierSets(cnfState).length) {
+        return {applicable: false, key: 'empty', label: 'Save Kind IDs', title: 'No kind identifiers selected'};
+      }
+      return {
+        applicable: true,
+        key: 'ready',
+        label: 'Save Kind IDs',
+        title: 'Save the selected kind identifier structure as JSON',
+      };
+    }
+
+    function renderKindIdentifierSaveButton() {
+      const state = kindIdentifierSaveButtonState({includePending: false});
+      return `<button class="export-button" type="button" data-kind-identifiers-save="true" data-kind-identifiers-save-state="${escapeHtml(state.key)}" title="${escapeHtml(state.title)}"${state.applicable ? '' : ' disabled'}>${escapeHtml(state.label)}</button>`;
+    }
+
+    function inclusionPreorderSaveButtonState(options = {}) {
+      if (!activeData || !cnfState) {
+        return {applicable: false, key: 'unavailable', label: 'Save Preorder', title: 'No CNF available'};
+      }
+      const includePending = options.includePending !== false;
+      const pending = includePending ? pendingCnfInputState() : {savable: false, invalid: false};
+      if (pending.invalid) {
+        return {applicable: false, key: 'invalid', label: 'Save Preorder', title: 'Fix Conceptual names before saving the inclusion preorder'};
+      }
+      return {
+        applicable: true,
+        key: 'ready',
+        label: 'Save Preorder',
+        title: 'Save the inclusion preorder as JSON',
+      };
+    }
+
+    function renderInclusionPreorderSaveButton() {
+      const state = inclusionPreorderSaveButtonState({includePending: false});
+      return `<button class="export-button" type="button" data-inclusion-preorder-save="true" data-inclusion-preorder-save-state="${escapeHtml(state.key)}" title="${escapeHtml(state.title)}"${state.applicable ? '' : ' disabled'}>${escapeHtml(state.label)}</button>`;
+    }
+
+    const showKindStructureSaveButtons = false;
+
     function renderConceptualActions() {
-      return `${renderCreateKindsButton()}${renderCnfSaveButton()}`;
+      return [
+        renderCreateKindsButton(),
+        showKindStructureSaveButtons ? renderKindIdentifierSaveButton() : '',
+        showKindStructureSaveButtons ? renderInclusionPreorderSaveButton() : '',
+        renderCnfSaveButton(),
+      ].join('');
     }
 
     function renderSixNfExportButton() {
@@ -1571,9 +1671,31 @@ manager => empid`;
       button.dataset.createKindsState = state.key;
     }
 
+    function updateKindIdentifierSaveButtonState() {
+      const button = result.querySelector('[data-kind-identifiers-save]');
+      if (!button) return;
+      const state = kindIdentifierSaveButtonState();
+      button.disabled = !state.applicable;
+      button.textContent = state.label;
+      button.title = state.title;
+      button.dataset.kindIdentifiersSaveState = state.key;
+    }
+
+    function updateInclusionPreorderSaveButtonState() {
+      const button = result.querySelector('[data-inclusion-preorder-save]');
+      if (!button) return;
+      const state = inclusionPreorderSaveButtonState();
+      button.disabled = !state.applicable;
+      button.textContent = state.label;
+      button.title = state.title;
+      button.dataset.inclusionPreorderSaveState = state.key;
+    }
+
     function updateConceptualActionButtons() {
       updateCnfSaveButtonState();
       updateCreateKindsButtonState();
+      updateKindIdentifierSaveButtonState();
+      updateInclusionPreorderSaveButtonState();
     }
 
     function normalFormForDisplay(form) {
@@ -1660,7 +1782,6 @@ manager => empid`;
         return false;
       }
 
-      const refreshGeneratedKinds = hasGeneratedKindRelations(cnfState);
       for (const relation of cnfState.relations || []) {
         if (relation.name === oldName) {
           if (isGeneratedKindRelation(relation)) {
@@ -1683,7 +1804,7 @@ manager => empid`;
           setRelationKindIdentifierObjects(relation, renamedKindIdentifiers);
         }
       }
-      if (refreshGeneratedKinds) materializeKindRelations(cnfState);
+      if (cnfState.kind_taxonomy_visible) cnfState.kind_taxonomy = buildKindTaxonomy(cnfState);
       statusEl.textContent = 'Conceptual relation renamed';
       return true;
     }
@@ -1701,7 +1822,6 @@ manager => empid`;
       }
 
       const knownAttributes = allCnfAttributes(cnfState);
-      const refreshGeneratedKinds = hasGeneratedKindRelations(cnfState);
       for (const relation of cnfState.relations || []) {
         const generatedAutoName = isGeneratedKindRelation(relation)
           ? rootKindRelationName([relation.attributes || []])
@@ -1729,7 +1849,7 @@ manager => empid`;
       }
       cnfState.cross_relation_inclusion_dependencies = (cnfState.cross_relation_inclusion_dependencies || [])
         .map(dep => rewriteDependencyAttributes(dep, knownAttributes, oldBase, newBase));
-      if (refreshGeneratedKinds) materializeKindRelations(cnfState);
+      if (cnfState.kind_taxonomy_visible) cnfState.kind_taxonomy = buildKindTaxonomy(cnfState);
       statusEl.textContent = 'Conceptual attribute renamed';
       return true;
     }
@@ -2106,7 +2226,7 @@ manager => empid`;
         ? renderDependencyList(dependencies)
         : '<div class="dep-list-empty">no dependency</div>';
       return `<div class="box full">
-        <h3>Cross-relation Inclusion Dependency</h3>
+        <h3>Cross-relation Inclusion Dependencies</h3>
         ${content}
       </div>`;
     }
@@ -3651,6 +3771,599 @@ manager => empid`;
       return nodeFlatAttributes((group || []).flatMap(kindIdentifierGroupItemNodes));
     }
 
+    function serializableInclusionNode(node) {
+      const normalized = normalizeInclusionNode(node);
+      if (!normalized) return null;
+      return {
+        relation: normalized.relation,
+        attributes: [...(normalized.attributes || [])],
+      };
+    }
+
+    function serializableInclusionPreorderNode(node) {
+      const normalized = normalizeInclusionNode(node);
+      if (!normalized) return null;
+      return {
+        key: inclusionNodeKey(normalized),
+        relation: normalized.relation,
+        attributes: [...(normalized.attributes || [])],
+        arity: (normalized.attributes || []).length,
+      };
+    }
+
+    function inclusionPreorderStructureForSave(cnf) {
+      const graph = inclusionPreorderGraph(cnf || {});
+      const nodes = uniqueInclusionNodes(graph.nodes || []);
+      const nodeByKey = new Map(nodes.map(node => [inclusionNodeKey(node), node]));
+      const edges = (graph.edges || []).map(([sourceKey, targetKey]) => {
+        const source = nodeByKey.get(sourceKey);
+        const target = nodeByKey.get(targetKey);
+        if (!source || !target) return null;
+        return {
+          source_key: sourceKey,
+          target_key: targetKey,
+          source: serializableInclusionNode(source),
+          target: serializableInclusionNode(target),
+        };
+      }).filter(Boolean);
+      const connectedComponents = inclusionPreorderConnectedNodeGroups(cnf || {}).map(group => {
+        const componentNodes = uniqueInclusionNodes(group || []);
+        return {
+          nodes: componentNodes.map(serializableInclusionPreorderNode).filter(Boolean),
+          arity: componentNodes.length ? (componentNodes[0].attributes || []).length : 0,
+        };
+      });
+      return {
+        name: cnf && cnf.name ? cnf.name : 'CNF',
+        nodes: nodes.map(serializableInclusionPreorderNode).filter(Boolean),
+        edges,
+        connected_components: connectedComponents,
+      };
+    }
+
+    function serializableKindIdentifier(identifier) {
+      const normalized = normalizeKindIdentifierObject(identifier);
+      return {
+        name: normalized.name || kindIdentifierNameFromNodes(normalized.nodes || []),
+        nodes: uniqueInclusionNodes(normalized.nodes || [])
+          .map(serializableInclusionNode)
+          .filter(Boolean),
+        attributes: [...(normalized.attributes || [])],
+      };
+    }
+
+    function kindIdentifierGroupStructure(group) {
+      const identifiers = uniqueKindIdentifierObjects((group || []).flatMap(item => item.identifiers || []));
+      const nodes = uniqueInclusionNodes((group || []).flatMap(kindIdentifierGroupItemNodes));
+      return {
+        name: kindIdentifierNameFromNodes(nodes),
+        nodes: nodes.map(serializableInclusionNode).filter(Boolean),
+        attributes: nodeFlatAttributes(nodes),
+        kind_identifiers: identifiers.map(serializableKindIdentifier),
+      };
+    }
+
+    function kindIdentifierStructureForSave(cnf) {
+      const selectedIdentifiers = selectedKindIdentifierSets(cnf).map(serializableKindIdentifier);
+      const groups = selectedKindIdentifierGroupDescriptors(cnf).map(kindIdentifierGroupStructure);
+      const relations = sourceConceptualRelations(cnf).map(relation => {
+        return {
+          name: relation.name || relationNameFor(relation.attributes || []),
+          kind_identifiers: relationKindIdentifierObjects(relation).map(serializableKindIdentifier),
+        };
+      }).filter(relation => relation.kind_identifiers.length);
+      return {
+        name: cnf && cnf.name ? cnf.name : 'CNF',
+        kind_identifiers: selectedIdentifiers,
+        groups,
+        relations,
+      };
+    }
+
+    function setUnion(values) {
+      const out = new Set();
+      for (const valueSet of values || []) {
+        for (const value of valueSet || []) out.add(value);
+      }
+      return out;
+    }
+
+    function sortedSetValues(valueSet) {
+      return [...(valueSet || [])].sort((left, right) => {
+        return String(left).localeCompare(String(right), undefined, {numeric: true});
+      });
+    }
+
+    function intersectSorted(left, right) {
+      const rightSet = right instanceof Set ? right : new Set(right || []);
+      return sortedSetValues(new Set((left || []).filter(value => rightSet.has(value))));
+    }
+
+    function inclusionPreorderEquivalenceClasses(cnf) {
+      const graph = inclusionPreorderGraph(cnf || {});
+      const nodes = uniqueInclusionNodes(graph.nodes || []);
+      const nodeByKey = new Map(nodes.map(node => [inclusionNodeKey(node), node]));
+      const adjacency = new Map(nodes.map(node => [inclusionNodeKey(node), []]));
+
+      for (const [sourceKey, targetKey] of graph.edges || []) {
+        if (!nodeByKey.has(sourceKey) || !nodeByKey.has(targetKey)) continue;
+        if (!adjacency.has(sourceKey)) adjacency.set(sourceKey, []);
+        adjacency.get(sourceKey).push(targetKey);
+      }
+
+      let index = 0;
+      const stack = [];
+      const onStack = new Set();
+      const indexes = new Map();
+      const lows = new Map();
+      const components = [];
+
+      function visit(key) {
+        indexes.set(key, index);
+        lows.set(key, index);
+        index += 1;
+        stack.push(key);
+        onStack.add(key);
+
+        for (const target of adjacency.get(key) || []) {
+          if (!indexes.has(target)) {
+            visit(target);
+            lows.set(key, Math.min(lows.get(key), lows.get(target)));
+          } else if (onStack.has(target)) {
+            lows.set(key, Math.min(lows.get(key), indexes.get(target)));
+          }
+        }
+
+        if (lows.get(key) !== indexes.get(key)) return;
+        const component = [];
+        while (stack.length) {
+          const next = stack.pop();
+          onStack.delete(next);
+          component.push(next);
+          if (next === key) break;
+        }
+        components.push(component);
+      }
+
+      for (const key of nodeByKey.keys()) {
+        if (!indexes.has(key)) visit(key);
+      }
+
+      const classes = components
+        .map(componentKeys => {
+          const componentNodes = uniqueInclusionNodes(componentKeys.map(key => nodeByKey.get(key)).filter(Boolean));
+          return {
+            nodes: componentNodes,
+            relations: sortedSetValues(new Set(componentNodes.map(node => node.relation))),
+            label: kindIdentifierNameFromNodes(componentNodes),
+          };
+        })
+        .sort((left, right) => {
+          const leftKey = left.nodes.map(inclusionNodeKey).join('\u0002');
+          const rightKey = right.nodes.map(inclusionNodeKey).join('\u0002');
+          return leftKey.localeCompare(rightKey, undefined, {numeric: true});
+        })
+        .map((component, classIndex) => ({
+          ...component,
+          index: classIndex,
+          id: `E${classIndex + 1}`,
+        }));
+
+      const classByNodeKey = new Map();
+      for (const item of classes) {
+        for (const node of item.nodes || []) classByNodeKey.set(inclusionNodeKey(node), item.index);
+      }
+
+      const quotientEdges = [];
+      const seenEdges = new Set();
+      for (const [sourceKey, targetKey] of graph.edges || []) {
+        const sourceClass = classByNodeKey.get(sourceKey);
+        const targetClass = classByNodeKey.get(targetKey);
+        if (sourceClass === undefined || targetClass === undefined || sourceClass === targetClass) continue;
+        const key = `${sourceClass}\u0001${targetClass}`;
+        if (seenEdges.has(key)) continue;
+        seenEdges.add(key);
+        quotientEdges.push([sourceClass, targetClass]);
+      }
+
+      return {
+        classes,
+        classByNodeKey,
+        quotientEdges,
+      };
+    }
+
+    function reachabilitySets(count, edges) {
+      const adjacency = Array.from({length: count}, () => []);
+      for (const [source, target] of edges || []) {
+        if (source < 0 || target < 0 || source >= count || target >= count) continue;
+        adjacency[source].push(target);
+      }
+      return adjacency.map((_, source) => {
+        const reached = new Set();
+        const stack = [...adjacency[source]];
+        while (stack.length) {
+          const next = stack.pop();
+          if (reached.has(next)) continue;
+          reached.add(next);
+          stack.push(...adjacency[next]);
+        }
+        return reached;
+      });
+    }
+
+    function transitiveReduction(count, edges) {
+      const uniqueEdges = [];
+      const seen = new Set();
+      for (const [source, target] of edges || []) {
+        if (source === target) continue;
+        const key = `${source}\u0001${target}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        uniqueEdges.push([source, target]);
+      }
+      const reachability = reachabilitySets(count, uniqueEdges);
+      return uniqueEdges.filter(([source, target]) => {
+        for (const intermediate of reachability[source] || []) {
+          if (intermediate === target) continue;
+          if ((reachability[intermediate] || new Set()).has(target)) return false;
+        }
+        return true;
+      }).sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+    }
+
+    function buildKindTaxonomy(cnf) {
+      const identifiers = selectedKindIdentifierSets(cnf || {});
+      const preorder = inclusionPreorderEquivalenceClasses(cnf || {});
+      const selectedClassIndexes = new Set();
+      const kindLabelsByClass = new Map();
+      const classesByIdentifier = [];
+
+      for (const identifier of identifiers) {
+        const label = identifier.name || kindIdentifierNameFromNodes(identifier.nodes || []);
+        const classIndexesForIdentifier = new Set();
+        for (const node of uniqueInclusionNodes(identifier.nodes || [])) {
+          const classIndex = preorder.classByNodeKey.get(inclusionNodeKey(node));
+          if (classIndex === undefined) continue;
+          selectedClassIndexes.add(classIndex);
+          classIndexesForIdentifier.add(classIndex);
+          if (!kindLabelsByClass.has(classIndex)) kindLabelsByClass.set(classIndex, new Set());
+          kindLabelsByClass.get(classIndex).add(label);
+        }
+        if (classIndexesForIdentifier.size) {
+          classesByIdentifier.push({
+            label,
+            classIndexes: [...classIndexesForIdentifier].sort((left, right) => left - right),
+          });
+        }
+      }
+
+      const selected = [...selectedClassIndexes].sort((left, right) => left - right);
+      const parent = new Map(selected.map(classIndex => [classIndex, classIndex]));
+
+      function find(classIndex) {
+        const next = parent.get(classIndex);
+        if (next === undefined) return undefined;
+        if (next === classIndex) return classIndex;
+        const root = find(next);
+        parent.set(classIndex, root);
+        return root;
+      }
+
+      function union(left, right) {
+        const leftRoot = find(left);
+        const rightRoot = find(right);
+        if (leftRoot === undefined || rightRoot === undefined || leftRoot === rightRoot) return;
+        parent.set(rightRoot, leftRoot);
+      }
+
+      const alternativeIdentifierMergeRecords = [];
+      for (const item of classesByIdentifier) {
+        const classesByRelation = new Map();
+        for (const classIndex of item.classIndexes || []) {
+          const cls = preorder.classes[classIndex];
+          for (const relation of cls && cls.relations || []) {
+            if (!classesByRelation.has(relation)) classesByRelation.set(relation, new Set());
+            classesByRelation.get(relation).add(classIndex);
+          }
+        }
+        for (const [relation, classIndexes] of classesByRelation.entries()) {
+          const members = [...classIndexes].sort((left, right) => left - right);
+          if (members.length < 2) continue;
+          for (let index = 1; index < members.length; index += 1) {
+            union(members[0], members[index]);
+          }
+          alternativeIdentifierMergeRecords.push({
+            relation,
+            classIndexes: members,
+            kindIdentifier: item.label,
+          });
+        }
+      }
+
+      const groupsByRoot = new Map();
+      for (const classIndex of selected) {
+        const root = find(classIndex);
+        if (root === undefined) continue;
+        if (!groupsByRoot.has(root)) groupsByRoot.set(root, []);
+        groupsByRoot.get(root).push(classIndex);
+      }
+      const mergedGroups = [...groupsByRoot.values()]
+        .map(group => group.sort((left, right) => left - right))
+        .sort((left, right) => {
+          const leftKey = left.join('\u0001');
+          const rightKey = right.join('\u0001');
+          return leftKey.localeCompare(rightKey, undefined, {numeric: true});
+        });
+      const mergedIndexByClass = new Map();
+      mergedGroups.forEach((group, groupIndex) => {
+        for (const classIndex of group) mergedIndexByClass.set(classIndex, groupIndex);
+      });
+
+      const alternativeRelationsByMergedGroup = new Map();
+      for (const record of alternativeIdentifierMergeRecords) {
+        const groupIndexes = unique((record.classIndexes || [])
+          .map(classIndex => mergedIndexByClass.get(classIndex))
+          .filter(index => index !== undefined));
+        if (groupIndexes.length !== 1) continue;
+        const groupIndex = groupIndexes[0];
+        if (!alternativeRelationsByMergedGroup.has(groupIndex)) {
+          alternativeRelationsByMergedGroup.set(groupIndex, new Map());
+        }
+        const classIds = (record.classIndexes || [])
+          .map(classIndex => preorder.classes[classIndex] && preorder.classes[classIndex].id)
+          .filter(Boolean);
+        const key = `${record.relation}\u0001${classIds.join('\u0002')}`;
+        const existing = alternativeRelationsByMergedGroup.get(groupIndex).get(key);
+        if (existing) {
+          existing.kind_identifiers = sortedSetValues(new Set([
+            ...(existing.kind_identifiers || []),
+            record.kindIdentifier,
+          ]));
+          continue;
+        }
+        alternativeRelationsByMergedGroup.get(groupIndex).set(key, {
+          relations: [record.relation],
+          classes: classIds,
+          kind_identifiers: [record.kindIdentifier],
+        });
+      }
+
+      const classReachability = reachabilitySets(preorder.classes.length, preorder.quotientEdges);
+      const mergedOrderEdges = [];
+      const mergedOrderSeen = new Set();
+      for (const sourceClass of selected) {
+        for (const targetClass of selected) {
+          if (sourceClass === targetClass) continue;
+          if (!classReachability[sourceClass].has(targetClass)) continue;
+          const sourceMerged = mergedIndexByClass.get(sourceClass);
+          const targetMerged = mergedIndexByClass.get(targetClass);
+          if (sourceMerged === undefined || targetMerged === undefined || sourceMerged === targetMerged) continue;
+          const key = `${sourceMerged}\u0001${targetMerged}`;
+          if (mergedOrderSeen.has(key)) continue;
+          mergedOrderSeen.add(key);
+          mergedOrderEdges.push([sourceMerged, targetMerged]);
+        }
+      }
+
+      const classes = mergedGroups.map((group, groupIndex) => {
+        const equivalenceClasses = group.map(classIndex => {
+          const item = preorder.classes[classIndex];
+          return {
+            id: item.id,
+            label: item.label,
+            relations: item.relations || [],
+          };
+        });
+        const groupNodes = uniqueInclusionNodes(group.flatMap(classIndex => preorder.classes[classIndex].nodes || []));
+        const kindLabels = sortedSetValues(setUnion(group.map(classIndex => kindLabelsByClass.get(classIndex) || new Set())));
+        return {
+          id: group.length === 1 ? equivalenceClasses[0].id : `M${groupIndex + 1}`,
+          index: groupIndex,
+          label: kindIdentifierNameFromNodes(groupNodes),
+          kind_identifiers: kindLabels,
+          equivalence_classes: equivalenceClasses,
+          alternative_identifier_relations: [
+            ...(alternativeRelationsByMergedGroup.get(groupIndex) || new Map()).values(),
+          ].sort((left, right) => {
+            const leftKey = `${(left.relations || []).join('\u0001')}\u0002${(left.classes || []).join('\u0001')}`;
+            const rightKey = `${(right.relations || []).join('\u0001')}\u0002${(right.classes || []).join('\u0001')}`;
+            return leftKey.localeCompare(rightKey, undefined, {numeric: true});
+          }),
+        };
+      });
+
+      const edges = transitiveReduction(classes.length, mergedOrderEdges)
+        .map(([source, target]) => ({
+          source,
+          target,
+          source_id: classes[source].id,
+          target_id: classes[target].id,
+        }));
+
+      return {
+        name: cnf && cnf.name ? cnf.name : 'CNF',
+        classes,
+        edges,
+      };
+    }
+
+    function shortTaxonomyText(value, limit = 58) {
+      const text = String(value || '');
+      return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
+    }
+
+    function kindTaxonomyClassLines(item) {
+      const lines = [];
+      lines.push({kind: 'title', text: `${item.id}: ${item.label || '{}'}`});
+      if ((item.kind_identifiers || []).length) {
+        lines.push({kind: 'meta', text: `kind id: ${(item.kind_identifiers || []).join('; ')}`});
+      }
+      lines.push({kind: 'section', text: 'equivalence classes'});
+      for (const cls of item.equivalence_classes || []) {
+        lines.push({kind: 'class', text: `${cls.id}: ${cls.label || '{}'}`});
+        for (const relation of cls.relations || []) {
+          lines.push({kind: 'relation', text: relation});
+        }
+      }
+      if ((item.alternative_identifier_relations || []).length) {
+        lines.push({kind: 'section', text: 'alternative identifiers'});
+        for (const alternative of item.alternative_identifier_relations || []) {
+          const rels = (alternative.relations || []).join(', ');
+          const classes = (alternative.classes || []).join(', ');
+          const kindIdentifiers = (alternative.kind_identifiers || []).join('; ');
+          const suffix = kindIdentifiers ? ` (${kindIdentifiers})` : '';
+          lines.push({kind: 'alternative', text: `${rels}: ${classes}${suffix}`});
+        }
+      }
+      return lines;
+    }
+
+    function kindTaxonomyRanks(taxonomy) {
+      const count = (taxonomy.classes || []).length;
+      const outgoing = Array.from({length: count}, () => []);
+      for (const edge of taxonomy.edges || []) {
+        outgoing[edge.source].push(edge.target);
+      }
+      const memo = new Map();
+      const visiting = new Set();
+      function rank(index) {
+        if (memo.has(index)) return memo.get(index);
+        if (visiting.has(index)) return 0;
+        visiting.add(index);
+        let out = 0;
+        for (const target of outgoing[index] || []) {
+          out = Math.max(out, rank(target) + 1);
+        }
+        visiting.delete(index);
+        memo.set(index, out);
+        return out;
+      }
+      return Array.from({length: count}, (_, index) => rank(index));
+    }
+
+    function renderKindTaxonomySvg(taxonomy) {
+      const classes = taxonomy.classes || [];
+      if (!classes.length) {
+        return '<div class="kind-taxonomy-empty">No kind taxonomy classes to draw.</div>';
+      }
+
+      const boxWidth = 380;
+      const lineHeight = 17;
+      const topMargin = 54;
+      const sideMargin = 36;
+      const bottomMargin = 40;
+      const boxData = classes.map(item => {
+        const lines = kindTaxonomyClassLines(item);
+        return {
+          item,
+          lines,
+          width: boxWidth,
+          height: Math.max(128, 48 + lines.length * lineHeight),
+        };
+      });
+      const maxBoxHeight = Math.max(...boxData.map(item => item.height));
+      const ranks = kindTaxonomyRanks(taxonomy);
+      const maxRank = Math.max(...ranks);
+      const rowGap = maxBoxHeight + 110;
+      const rows = new Map();
+      ranks.forEach((rank, index) => {
+        if (!rows.has(rank)) rows.set(rank, []);
+        rows.get(rank).push(index);
+      });
+      const maxRowSize = Math.max(...[...rows.values()].map(row => row.length));
+      const svgWidth = Math.max(760, sideMargin * 2 + maxRowSize * boxWidth + Math.max(0, maxRowSize - 1) * 70);
+      const svgHeight = topMargin + (maxRank + 1) * rowGap + maxBoxHeight / 2 + bottomMargin;
+      const positions = new Map();
+
+      for (const [rank, indexes] of rows.entries()) {
+        const sortedIndexes = indexes.sort((left, right) => {
+          return (classes[left].label || '').localeCompare(classes[right].label || '', undefined, {numeric: true});
+        });
+        const totalBoxes = sortedIndexes.length * boxWidth;
+        const gap = (svgWidth - sideMargin * 2 - totalBoxes) / (sortedIndexes.length + 1);
+        sortedIndexes.forEach((classIndex, rowIndex) => {
+          const x = sideMargin + gap * (rowIndex + 1) + boxWidth * rowIndex + boxWidth / 2;
+          const y = topMargin + rank * rowGap + maxBoxHeight / 2;
+          positions.set(classIndex, {x, y});
+        });
+      }
+
+      function boundary(source, target) {
+        const from = positions.get(source);
+        const to = positions.get(target);
+        const dims = boxData[source];
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        if (!dx && !dy) return {x: from.x, y: from.y};
+        const sx = dx ? (dims.width / 2) / Math.abs(dx) : Infinity;
+        const sy = dy ? (dims.height / 2) / Math.abs(dy) : Infinity;
+        const scale = Math.min(sx, sy) * 0.97;
+        return {
+          x: from.x + dx * scale,
+          y: from.y + dy * scale,
+        };
+      }
+
+      const parts = [];
+      parts.push(`<svg class="kind-taxonomy-svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" role="img" aria-label="Kind taxonomy">`);
+      parts.push(`<defs><marker id="kind-taxonomy-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/></marker></defs>`);
+      parts.push(`<style>
+        .kt-edge{stroke:#2563eb;stroke-width:2.2;fill:none;marker-end:url(#kind-taxonomy-arrow)}
+        .kt-box{fill:#fff;stroke:#cbd5e1;stroke-width:1.2}
+        .kt-title{font:700 14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#0f172a}
+        .kt-meta{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#64748b}
+        .kt-section{font:700 11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#475569;text-transform:uppercase;letter-spacing:.04em}
+        .kt-class{font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#334155}
+        .kt-relation{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#334155}
+        .kt-alternative{font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#dc2626}
+      </style>`);
+      parts.push('<rect width="100%" height="100%" fill="#f8fafc"/>');
+      parts.push('<g class="kind-taxonomy-edges">');
+      for (const edge of taxonomy.edges || []) {
+        const start = boundary(edge.source, edge.target);
+        const end = boundary(edge.target, edge.source);
+        parts.push(`<line class="kt-edge" x1="${start.x.toFixed(1)}" y1="${start.y.toFixed(1)}" x2="${end.x.toFixed(1)}" y2="${end.y.toFixed(1)}"/>`);
+      }
+      parts.push('</g>');
+      parts.push('<g class="kind-taxonomy-nodes">');
+      for (const [index, data] of boxData.entries()) {
+        const pos = positions.get(index);
+        const left = pos.x - data.width / 2;
+        const top = pos.y - data.height / 2;
+        parts.push(`<g>`);
+        parts.push(`<rect class="kt-box" x="${left.toFixed(1)}" y="${top.toFixed(1)}" width="${data.width}" height="${data.height}" rx="8"/>`);
+        let y = top + 26;
+        for (const line of data.lines) {
+          const cls = {
+            title: 'kt-title',
+            meta: 'kt-meta',
+            section: 'kt-section',
+            class: 'kt-class',
+            relation: 'kt-relation',
+            alternative: 'kt-alternative',
+          }[line.kind] || 'kt-relation';
+          const x = line.kind === 'title' ? pos.x : left + 16 + (line.kind === 'relation' ? 16 : 0);
+          const anchor = line.kind === 'title' ? 'middle' : 'start';
+          parts.push(`<text class="${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}">${escapeHtml(shortTaxonomyText(line.text))}</text>`);
+          y += lineHeight;
+        }
+        parts.push('</g>');
+      }
+      parts.push('</g></svg>');
+      return parts.join('');
+    }
+
+    function renderKindTaxonomy(cnf) {
+      if (!cnf || !cnf.kind_taxonomy_visible) return '';
+      const taxonomy = buildKindTaxonomy(cnf);
+      cnf.kind_taxonomy = taxonomy;
+      return `<div class="box full kind-taxonomy-box">
+        <h3>Kind Taxonomy</h3>
+        <div class="kind-taxonomy-diagram">${renderKindTaxonomySvg(taxonomy)}</div>
+      </div>`;
+    }
+
     function makeJointKindIdentifierChoiceForGroup(group) {
       const identifiers = uniqueKindIdentifierObjects((group || []).flatMap(item => item.identifiers || []));
       const key = jointKindIdentifierChoiceGroupKey(identifiers);
@@ -4125,7 +4838,7 @@ manager => empid`;
         items.push('<div class="kind-identifier-summary-text">Kind identifiers: none</div>');
       }
       if (!coverage.ok) {
-        items.push(`<div class="kind-identifier-summary-text">Missing kind identifier: ${escapeHtml(coverage.missing.join(', '))}</div>`);
+        items.push(`<div class="kind-identifier-summary-text"><strong>Isolated relations: </strong>${escapeHtml(coverage.missing.join(', '))}</div>`);
       }
       const content = items.join('');
       return `<div class="box full kind-identifier-summary ${cls}">
@@ -4170,7 +4883,7 @@ manager => empid`;
           ${renderDependencyBox(dependencies, target.name, target.attributes)}
         </div>`;
       }).join('');
-      return `<div class="grid relation-grid">${renderKindIdentifierSummary(cnf)}${relationBoxes}${renderCrossRelationBox(crossInclusions)}</div>`;
+      return `<div class="grid relation-grid">${renderKindIdentifierSummary(cnf)}${renderKindTaxonomy(cnf)}${relationBoxes}${renderCrossRelationBox(crossInclusions)}</div>`;
     }
 
     function renderRemoved(removed) {
@@ -4242,12 +4955,70 @@ manager => empid`;
       return out;
     }
 
+    function sqlNullRelationChips(items) {
+      const out = [];
+      for (const item of items || []) {
+        const stage = item.sql_null_stage || {};
+        for (const relation of stage.named_sql_null_decomposition || []) {
+          out.push(`${relation.name}: ${fmtSet(relation.attributes)}`);
+        }
+      }
+      return out;
+    }
+
+    function renderSqlNullDependencyRows(items) {
+      const rows = [];
+      for (const item of items || []) {
+        for (const relation of item.per_relation_4nf || []) {
+          const relationAttributes = relation.renamed_sql_null_relation || relation.sql_null_relation || [];
+          const label = relation.sql_null_relation_name
+            ? `${relation.sql_null_relation_name}: ${fmtSet(relationAttributes)}`
+            : fmtSet(relationAttributes);
+          const dependencies = uniqueDependencies([
+            ...(relation.applicable_fds || []),
+            ...(relation.applicable_mvds || []),
+          ]);
+          rows.push(`<div class="sql-null-dependency-row">
+            <div class="sql-null-dependency-name">${escapeHtml(label)}</div>
+            <div class="chips">${dependencyChips(dependencies)}</div>
+          </div>`);
+        }
+      }
+
+      const inclusions = uniqueDependencies((items || []).flatMap(item => item.null_taxonomy_inclusion_dependencies || []));
+      if (inclusions.length) {
+        rows.push(`<div class="sql-null-dependency-row">
+          <div class="sql-null-dependency-name"><strong>Inclusions</strong></div>
+          <div class="chips">${dependencyChips(inclusions)}</div>
+        </div>`);
+      }
+
+      if (!rows.length) return '';
+      return `<div class="sql-null-dependencies">
+        <h4>Dependencies</h4>
+        ${rows.join('')}
+      </div>`;
+    }
+
+    function renderSqlNullDecompositionBox(items, full = false) {
+      return `<div class="box sql-null-box${full ? ' full' : ''}">
+        <h3>SQL-null Decomposition</h3>
+        <div class="chips">${chips(sqlNullRelationChips(items))}</div>
+        ${renderSqlNullDependencyRows(items)}
+      </div>`;
+    }
+
+    function renderSqlNullDecompositionSection(items) {
+      return `<div class="grid">
+        ${renderSqlNullDecompositionBox(items || [], true)}
+      </div>`;
+    }
+
     function renderInputRelations(items) {
       if (!items || !items.length) return '';
       return items.map(item => {
         const stage = item.sql_null_stage || {};
         const final = (item.final_decomposition || []).map(fmtSet);
-        const namedSqlNull = (stage.named_sql_null_decomposition || []).map(relation => `${relation.name}: ${fmtSet(relation.attributes)}`);
         const title = `${item.input_relation} = ${fmtSet(item.attributes || [])}`;
         const applicableDependencies = displayDependenciesForRelation(item.input_relation, item.attributes || [], [
           ...(item.applicable_sql_null_dependencies || []),
@@ -4261,7 +5032,7 @@ manager => empid`;
             <div class="box"><h3>Attributes</h3><div class="chips">${chips(item.attributes)}</div></div>
             <div class="box"><h3>Nullable Attributes</h3><div class="chips">${chips(item.nullable)}</div></div>
             <div class="box"><h3>Applicable Dependencies</h3><div class="chips">${dependencyChips(applicableDependencies)}</div></div>
-            <div class="box sql-null-box"><h3>SQL-null Decomposition</h3><div class="chips">${chips(namedSqlNull)}</div></div>
+            ${renderSqlNullDecompositionBox([item])}
             <div class="box"><h3>Final NF</h3><div class="chips">${chips(final)}</div></div>
             <div class="box full"><h3>Removed Relations</h3>${renderRemoved(stage.removed_relations || {})}</div>
           </div>
@@ -4291,7 +5062,12 @@ manager => empid`;
         return total + Object.keys(((item.sql_null_stage || {}).removed_relations) || {}).length;
       }, 0);
       if (!cnfState) cnfState = cloneCnf(data.CNF || data['6NF']);
+      const displayData = detailsDisplayData(data);
       let html = renderSection('Source Schema', renderSource(data));
+      html += renderSection(
+        'SQL-null Decomposition',
+        renderSqlNullDecompositionSection(displayData.per_input_relation || [])
+      );
       html += renderSection(
         'Sixth Normal Form',
         renderTarget(data),
@@ -4308,9 +5084,6 @@ manager => empid`;
       </div>`;
 
       html += `<div id="detailsPanel" class="details-panel" hidden>
-        <div class="grid">
-          <div class="box sql-null-box full"><h3>SQL-null Decomposition</h3><div class="chips">${chips(sqlNull)}</div></div>
-        </div>
         <div class="summary">
         <div class="metric"><strong>${provisional.length}</strong><span>Provisional</span></div>
         <div class="metric"><strong>${sqlNull.length}</strong><span>SQL-null relations</span></div>
@@ -4323,7 +5096,6 @@ manager => empid`;
         <div class="box full"><h3>Removed Relations</h3>${renderRemovedSources(inputItems)}</div>
       </div>`;
 
-      const displayData = detailsDisplayData(data);
       html += `<div class="grid">${renderInputRelations(displayData.per_input_relation || [])}</div>`;
       html += `<pre>${escapeHtml(JSON.stringify(displayData, null, 2))}</pre>`;
       html += `</div>`;
@@ -4359,12 +5131,14 @@ manager => empid`;
     }
 
     function handleCnfChange(event) {
-      const saving = event.type === 'focusout'
-        && event.relatedTarget
-        && event.relatedTarget.dataset
-        && event.relatedTarget.dataset.cnfSave;
-      commitCnfInput(event.target, {renderAfter: !saving});
-      if (saving) updateConceptualActionButtons();
+      const actionTarget = event.relatedTarget && event.relatedTarget.dataset
+        ? event.relatedTarget.dataset
+        : null;
+      const conceptualAction = event.type === 'focusout'
+        && actionTarget
+        && (actionTarget.cnfSave || actionTarget.kindIdentifiersSave || actionTarget.inclusionPreorderSave || actionTarget.createKinds);
+      commitCnfInput(event.target, {renderAfter: !conceptualAction});
+      if (conceptualAction) updateConceptualActionButtons();
     }
 
     function handleCnfInput(event) {
@@ -4468,11 +5242,10 @@ manager => empid`;
         return;
       }
 
-      const result = materializeKindRelations(cnfState);
-      let message = result.changed
-        ? `Kinds created: ${result.count}`
-        : 'Kinds already created';
-      statusEl.textContent = message;
+      cnfState.relations = sourceConceptualRelations(cnfState);
+      cnfState.kind_taxonomy_visible = true;
+      cnfState.kind_taxonomy = buildKindTaxonomy(cnfState);
+      statusEl.textContent = `Kind taxonomy created: ${cnfState.kind_taxonomy.classes.length} classes, ${cnfState.kind_taxonomy.edges.length} edges`;
       render(activeData);
     }
 
@@ -4485,18 +5258,66 @@ manager => empid`;
       createKinds();
     }
 
-    function exportSixNf() {
-      if (!activeData || !activeData['6NF']) return;
-      const body = `${JSON.stringify(activeData['6NF'], null, 2)}\n`;
+    function downloadJson(data, filename) {
+      const body = `${JSON.stringify(data, null, 2)}\n`;
       const blob = new Blob([body], {type: 'application/json'});
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'sixth-normal-form.json';
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+    }
+
+    function saveKindIdentifierStructure() {
+      if (!activeData || !cnfState) return;
+      commitVisibleCnfInputs();
+      const state = kindIdentifierSaveButtonState({includePending: false});
+      if (!state.applicable) {
+        updateConceptualActionButtons();
+        return;
+      }
+      const structure = kindIdentifierStructureForSave(cnfState);
+      downloadJson(structure, 'kind-identifiers.json');
+      statusEl.textContent = `Kind identifiers saved: ${structure.kind_identifiers.length}`;
+    }
+
+    function handleKindIdentifierStructureSave(event) {
+      const button = event.target && event.target.closest
+        ? event.target.closest('[data-kind-identifiers-save]')
+        : null;
+      if (!button) return;
+      if (button.disabled) return;
+      saveKindIdentifierStructure();
+    }
+
+    function saveInclusionPreorderStructure() {
+      if (!activeData || !cnfState) return;
+      commitVisibleCnfInputs();
+      const state = inclusionPreorderSaveButtonState({includePending: false});
+      if (!state.applicable) {
+        updateConceptualActionButtons();
+        return;
+      }
+      const structure = inclusionPreorderStructureForSave(cnfState);
+      downloadJson(structure, 'inclusion-preorder.json');
+      statusEl.textContent = `Inclusion preorder saved: ${structure.nodes.length} nodes, ${structure.edges.length} edges`;
+    }
+
+    function handleInclusionPreorderStructureSave(event) {
+      const button = event.target && event.target.closest
+        ? event.target.closest('[data-inclusion-preorder-save]')
+        : null;
+      if (!button) return;
+      if (button.disabled) return;
+      saveInclusionPreorderStructure();
+    }
+
+    function exportSixNf() {
+      if (!activeData || !activeData['6NF']) return;
+      downloadJson(activeData['6NF'], 'sixth-normal-form.json');
       statusEl.textContent = '6NF exported';
     }
 
@@ -4551,6 +5372,8 @@ manager => empid`;
     result.addEventListener('click', handleCnfSave);
     result.addEventListener('click', handleKindIdentifierAction);
     result.addEventListener('click', handleCreateKinds);
+    result.addEventListener('click', handleKindIdentifierStructureSave);
+    result.addEventListener('click', handleInclusionPreorderStructureSave);
     result.addEventListener('click', handleSixNfExport);
     result.addEventListener('input', handleCnfInput);
     result.addEventListener('change', handleKindIdentifierDraftChange);

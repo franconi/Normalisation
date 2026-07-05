@@ -107,31 +107,78 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
             rels(output["sql_null_stage"]["sql_null_decomposition"]),
         )
         self.assertEqual(
-            {"A#1,E#1", "A#2,B#2,E#2", "B#3,C#3", "A#3,B#3,E#3"},
+            {"AE", "A#1,B#1,E#1", "B#2,C#2", "A#2,B#2,E#2"},
             rels(output["final_decomposition"]),
         )
         self.assertEqual(
             {"AE", "ABE", "BC"},
             rels(output["original_final_decomposition"]),
         )
+        self.assertEqual(
+            [
+                "A#1, E#1 => AE",
+                "A#1 => A",
+                "E#1 => E",
+                "A#2, B#2, E#2 => A#1, B#1, E#1",
+                "A#2 => A#1",
+                "B#2 => B#1",
+                "E#2 => E#1",
+            ],
+            [
+                item["text"]
+                for item in output["inclusion_dependencies"]
+            ],
+        )
 
         abce_entry = next(
             item
             for item in output["per_relation_4nf"]
-            if item["sql_null_relation_name"] == "R#3"
+            if item["sql_null_relation_name"] == "R#2"
         )
         self.assertEqual(
-            {"A#3,B#3,E#3", "B#3,C#3"},
+            {"A#2,B#2,E#2", "B#2,C#2"},
             rels(abce_entry["four_nf_decomposition"]),
         )
         self.assertEqual(
             {"ABE", "BC"},
             rels(abce_entry["original_four_nf_decomposition"]),
         )
-        self.assertEqual(["B#3 -> C#3"], abce_entry["applicable_fds"])
+        self.assertEqual(["B#2 -> C#2"], abce_entry["applicable_fds"])
         self.assertEqual(["B -> C"], abce_entry["original_applicable_fds"])
-        self.assertEqual("B#3 -> C#3", abce_entry["steps"][0]["dependency"])
+        self.assertEqual("B#2 -> C#2", abce_entry["steps"][0]["dependency"])
         self.assertEqual("B -> C", abce_entry["original_steps"][0]["dependency"])
+
+    def test_composite_inclusion_dependency_implies_component_inclusions(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: A K
+                relation R1: A1 B1 K1
+                K1, A1 => KA
+                K1 -> att(R1)
+                """
+            )
+        )
+
+        self.assertEqual(
+            [
+                "K1, A1 => KA",
+                "K1 => K",
+                "A1 => A",
+            ],
+            [
+                item["text"]
+                for item in output["inclusion_dependencies"]
+            ],
+        )
+        self.assertEqual(
+            [
+                "K1, A1 => KA",
+                "K1 => K",
+                "A1 => A",
+            ],
+            output["CNF"]["cross_relation_inclusion_dependencies"],
+        )
 
     def test_alternative_sql_null_decomposition_is_computed_before_4nf(self):
         output = analyze_combined_schema(
@@ -145,16 +192,23 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            {"ABD", "ACD"},
+            {"AD", "ABD", "ACD"},
             rels(output["sql_null_stage"]["sql_null_decomposition"]),
         )
         self.assertEqual(
-            {"A#1,B#1,D#1", "A#2,C#2,D#2"},
+            {"AD", "A#1,B#1,D#1", "A#2,C#2,D#2"},
             rels(output["final_decomposition"]),
         )
         self.assertEqual(
-            {"ABD", "ACD"},
+            {"AD", "ABD", "ACD"},
             rels(output["original_final_decomposition"]),
+        )
+        self.assertEqual(
+            ["R", "R#1", "R#2"],
+            [
+                item["name"]
+                for item in output["sql_null_stage"]["named_sql_null_decomposition"]
+            ],
         )
 
     def test_existential_sql_null_decomposition_is_computed_before_4nf(self):
@@ -169,15 +223,15 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            {"ABD", "ACD", "ABCD"},
+            {"AD", "ABD", "ACD", "ABCD"},
             rels(output["sql_null_stage"]["sql_null_decomposition"]),
         )
         self.assertEqual(
-            {"A#1,B#1,D#1", "A#2,C#2,D#2", "A#3,B#3,C#3,D#3"},
+            {"AD", "A#1,B#1,D#1", "A#2,C#2,D#2", "A#3,B#3,C#3,D#3"},
             rels(output["final_decomposition"]),
         )
         self.assertEqual(
-            {"ABD", "ACD", "ABCD"},
+            {"AD", "ABD", "ACD", "ABCD"},
             rels(output["original_final_decomposition"]),
         )
 
@@ -203,9 +257,254 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
             if rel_name(item["sql_null_relation"]) == "ABCD"
         )
 
-        self.assertEqual([], abd_entry["applicable_fds"])
-        self.assertEqual(["A#2, B#2 -> C#2"], abcd_entry["applicable_fds"])
+        self.assertEqual(["ABD -> att(R)"], abd_entry["applicable_fds"])
+        self.assertEqual(["A#1, B#1 -> C#1"], abcd_entry["applicable_fds"])
         self.assertEqual(["AB -> C"], abcd_entry["original_applicable_fds"])
+
+    def test_sql_null_relation_without_constraints_gets_all_attributes_key(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: A B C
+                """
+            )
+        )
+
+        self.assertEqual(
+            ["ABC -> att(R)"],
+            output["per_input_relation"][0]["applicable_fds"],
+        )
+        self.assertEqual(
+            ["ABC -> att(R)"],
+            output["per_input_relation"][0]["per_relation_4nf"][0]["applicable_fds"],
+        )
+        self.assertEqual(
+            ["ABC -> att(R)"],
+            output["per_input_relation"][0]["per_relation_4nf"][0]["original_applicable_fds"],
+        )
+
+    def test_null_taxonomy_inclusion_dependencies_preserve_declared_order(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: E A B C
+                nullable: B C
+                B -N-> C
+                """
+            )
+        )
+
+        self.assertEqual(
+            [
+                {
+                    "source_relation": "R#1",
+                    "target_relation": "R",
+                    "source_attributes": ["E#1", "A#1"],
+                    "target_attributes": ["E", "A"],
+                },
+                {
+                    "source_relation": "R#2",
+                    "target_relation": "R#1",
+                    "source_attributes": ["E#2", "A#2", "B#2"],
+                    "target_attributes": ["E#1", "A#1", "B#1"],
+                },
+            ],
+            output["per_input_relation"][0]["null_taxonomy"]["edges"],
+        )
+
+    def test_null_taxonomy_inclusion_dependencies_target_superior_key(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: A B C
+                nullable: C
+                A -> B
+                """
+            )
+        )
+
+        self.assertEqual(
+            [
+                {
+                    "source_relation": "R#1",
+                    "target_relation": "R",
+                    "source_attributes": ["A#1"],
+                    "target_attributes": ["A"],
+                },
+            ],
+            output["per_input_relation"][0]["null_taxonomy"]["edges"],
+        )
+        self.assertEqual(
+            ["A#1 => A"],
+            output["per_input_relation"][0]["null_taxonomy_inclusion_dependencies"],
+        )
+        self.assertEqual(
+            ["A#1 => A"],
+            [
+                item["text"]
+                for item in output["inclusion_dependencies"]
+            ],
+        )
+        self.assertEqual(
+            [["A", "B"], ["A#1", "C#1"]],
+            [
+                item["attributes"]
+                for item in output["sql_null_stage"]["named_sql_null_decomposition"]
+            ],
+        )
+        self.assertEqual(
+            [["A", "B"], ["A#1", "C#1"]],
+            [
+                item["renamed_sql_null_relation"]
+                for item in output["per_input_relation"][0]["per_relation_4nf"]
+            ],
+        )
+        self.assertEqual(
+            {"AB", "A#1,C#1"},
+            rels(output["final_decomposition"]),
+        )
+
+    def test_null_taxonomy_inclusion_dependencies_target_fd_lhs_and_remove_rhs(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: A B C D
+                nullable: D
+                A -> B
+                """
+            )
+        )
+
+        self.assertEqual(
+            [
+                {
+                    "source_relation": "R#1",
+                    "target_relation": "R",
+                    "source_attributes": ["A#1"],
+                    "target_attributes": ["A"],
+                },
+            ],
+            output["per_input_relation"][0]["null_taxonomy"]["edges"],
+        )
+        self.assertEqual(
+            [["A", "B", "C"], ["A#1", "C#1", "D#1"]],
+            [
+                item["attributes"]
+                for item in output["sql_null_stage"]["named_sql_null_decomposition"]
+            ],
+        )
+
+    def test_null_taxonomy_inclusion_dependencies_target_mvd_lhs_and_remove_rhs(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: A B C D
+                nullable: D
+                A ->> B
+                """
+            )
+        )
+
+        self.assertEqual(
+            [
+                {
+                    "source_relation": "R#1",
+                    "target_relation": "R",
+                    "source_attributes": ["A#1"],
+                    "target_attributes": ["A"],
+                },
+            ],
+            output["per_input_relation"][0]["null_taxonomy"]["edges"],
+        )
+        self.assertEqual(
+            [["A", "B", "C"], ["A#1", "C#1", "D#1"]],
+            [
+                item["attributes"]
+                for item in output["sql_null_stage"]["named_sql_null_decomposition"]
+            ],
+        )
+
+    def test_null_taxonomy_inclusion_dependencies_target_each_matching_dependency_lhs(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: A B C D E
+                nullable: E
+                A -> B
+                C ->> D
+                """
+            )
+        )
+
+        self.assertEqual(
+            [
+                {
+                    "source_relation": "R#1",
+                    "target_relation": "R",
+                    "source_attributes": ["A#1"],
+                    "target_attributes": ["A"],
+                },
+                {
+                    "source_relation": "R#1",
+                    "target_relation": "R",
+                    "source_attributes": ["C#1"],
+                    "target_attributes": ["C"],
+                },
+            ],
+            output["per_input_relation"][0]["null_taxonomy"]["edges"],
+        )
+        self.assertEqual(
+            ["A#1 => A", "C#1 => C"],
+            output["per_input_relation"][0]["null_taxonomy_inclusion_dependencies"],
+        )
+        self.assertEqual(
+            [["A", "B", "C", "D"], ["A#1", "C#1", "E#1"]],
+            [
+                item["attributes"]
+                for item in output["sql_null_stage"]["named_sql_null_decomposition"]
+            ],
+        )
+
+    def test_null_taxonomy_does_not_remove_rhs_attribute_used_as_another_lhs(self):
+        output = analyze_combined_schema(
+            schema_from_text(
+                """
+                relation R: A B C D E
+                nullable: E
+                A -> B
+                B -> C
+                """
+            )
+        )
+
+        self.assertEqual(
+            [
+                {
+                    "source_relation": "R#1",
+                    "target_relation": "R",
+                    "source_attributes": ["A#1"],
+                    "target_attributes": ["A"],
+                },
+                {
+                    "source_relation": "R#1",
+                    "target_relation": "R",
+                    "source_attributes": ["B#1"],
+                    "target_attributes": ["B"],
+                },
+            ],
+            output["per_input_relation"][0]["null_taxonomy"]["edges"],
+        )
+        self.assertEqual(
+            ["A#1 => A", "B#1 => B"],
+            output["per_input_relation"][0]["null_taxonomy_inclusion_dependencies"],
+        )
+        self.assertEqual(
+            [["A", "B", "C", "D"], ["A#1", "B#1", "D#1", "E#1"]],
+            [
+                item["attributes"]
+                for item in output["sql_null_stage"]["named_sql_null_decomposition"]
+            ],
+        )
 
     def test_mvd_violation_decomposes_relation_to_4nf(self):
         output = analyze_combined_schema(
@@ -343,12 +642,12 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
         self.assertEqual([], r2["applicable_fds"])
         self.assertEqual(["A ->> D"], r2["applicable_mvds"])
         self.assertEqual(
-            {"A#1,E#1", "A#2,D#2", "A#2,E#2"},
+            {"AE", "A#3,D#3", "A#3,E#3"},
             rels(r2["final_decomposition"]),
         )
         self.assertEqual({"AD", "AE"}, rels(r2["original_final_decomposition"]))
         self.assertEqual(
-            ["R1#1", "R1#2", "R1#3"],
+            ["R1", "R1#1", "R1#2"],
             [
                 item["sql_null_relation_name"]
                 for item in r1["per_relation_4nf"]
@@ -356,9 +655,9 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
         )
         self.assertEqual(
             [
-                ["A#1", "E#1"],
-                ["A#2", "B#2", "E#2"],
-                ["A#3", "B#3", "C#3", "E#3"],
+                ["A", "E"],
+                ["A#1", "B#1", "E#1"],
+                ["A#2", "B#2", "C#2", "E#2"],
             ],
             [
                 item["renamed_sql_null_relation"]
@@ -368,15 +667,15 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
         r1_generated_4nf = next(
             item
             for item in r1["per_relation_4nf"]
-            if item["sql_null_relation_name"] == "R1#3"
+            if item["sql_null_relation_name"] == "R1#2"
         )
         self.assertEqual(
-            {"A#3,B#3,E#3", "B#3,C#3"},
+            {"A#2,B#2,E#2", "B#2,C#2"},
             rels(r1_generated_4nf["four_nf_decomposition"]),
         )
-        self.assertEqual(["B#3 -> C#3"], r1_generated_4nf["applicable_fds"])
+        self.assertEqual(["B#2 -> C#2"], r1_generated_4nf["applicable_fds"])
         self.assertEqual(
-            ["R2#1", "R2#2"],
+            ["R2", "R2#3"],
             [
                 item["sql_null_relation_name"]
                 for item in r2["per_relation_4nf"]
@@ -384,8 +683,8 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
         )
         self.assertEqual(
             [
-                ["A#1", "E#1"],
-                ["A#2", "D#2", "E#2"],
+                ["A", "E"],
+                ["A#3", "D#3", "E#3"],
             ],
             [
                 item["renamed_sql_null_relation"]
@@ -495,6 +794,34 @@ class CombinedNull4NFDecomposerTests(unittest.TestCase):
                 }
             ],
             output["inclusion_dependencies"],
+        )
+
+    def test_parser_treats_single_digit_suffixed_attribute_as_one_attribute(self):
+        parsed = schema_from_text(
+            """
+            relation R2: A2 C2
+            relation R3: A3 D3
+            relation R4: A4
+            A4 => A2
+            A4 => A3
+            """
+        )
+
+        self.assertEqual(
+            [
+                ["A2", "C2"],
+                ["A3", "D3"],
+                ["A4"],
+            ],
+            [
+                sorted(relation.attributes)
+                for relation in parsed.database_schemas[0].relations
+            ],
+        )
+        output = analyze_combined_schema(parsed)
+        self.assertEqual(
+            ["A4 => A2", "A4 => A3"],
+            [item["text"] for item in output["inclusion_dependencies"]],
         )
 
     def test_parser_accepts_typed_inclusion_dependencies(self):

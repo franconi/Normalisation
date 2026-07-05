@@ -58,8 +58,8 @@ class SQLNullDecomposerTests(unittest.TestCase):
                 [dep("alternative_sql_null", "B", "C")],
             )
         )
-        self.assertEqual({"ABD", "ACD"}, rels(final))
-        self.assertEqual({"AD", "ABCD"}, set(removed))
+        self.assertEqual({"AD", "ABD", "ACD"}, rels(final))
+        self.assertEqual({"ABCD"}, set(removed))
 
     def test_existential_sql_null_keeps_at_least_one_non_null(self):
         final, removed = sql_null_decomposition(
@@ -69,8 +69,8 @@ class SQLNullDecomposerTests(unittest.TestCase):
                 [dep("existential_sql_null", "B", "C")],
             )
         )
-        self.assertEqual({"ABD", "ACD", "ABCD"}, rels(final))
-        self.assertEqual({"AD"}, set(removed))
+        self.assertEqual({"AD", "ABD", "ACD", "ABCD"}, rels(final))
+        self.assertEqual(set(), set(removed))
 
     def test_combined_dependencies(self):
         final, removed = sql_null_decomposition(
@@ -162,9 +162,9 @@ class SQLNullDecomposerTests(unittest.TestCase):
         )
         self.assertEqual([["A"], ["A", "B"], ["A", "B", "C"]], output["sql_null_decomposition"])
         named = output["named_sql_null_decomposition"]
-        self.assertEqual(["R#1", "R#2", "R#3"], [item["name"] for item in named])
+        self.assertEqual(["R", "R#1", "R#2"], [item["name"] for item in named])
         self.assertEqual(
-            [["A#1"], ["A#2", "B#2"], ["A#3", "B#3", "C#3"]],
+            [["A"], ["A#1", "B#1"], ["A#2", "B#2", "C#2"]],
             [item["attributes"] for item in named],
         )
         self.assertEqual(
@@ -172,8 +172,15 @@ class SQLNullDecomposerTests(unittest.TestCase):
             [item["original_attributes"] for item in named],
         )
         self.assertEqual(
-            [[], ["B#2"], ["B#3", "C#3"]],
+            [[], ["B#1"], ["B#2", "C#2"]],
             [item["renamed_nullable_subset"] for item in named],
+        )
+        self.assertEqual(
+            ["A#1 => A", "A#2, B#2 => A#1, B#1"],
+            [
+                item["text"]
+                for item in output["null_taxonomy_inclusion_dependencies"]
+            ],
         )
         self.assertEqual([[], ["B"], ["B", "C"]], output["restricted_nullable_powerset"])
         self.assertIn("C", output["removed_nullable_sets"])
@@ -217,15 +224,44 @@ class SQLNullDecomposerTests(unittest.TestCase):
             )
         )
         self.assertEqual(
-            ["Orders#1", "Orders#2", "Orders#3"],
+            ["Orders", "Orders#1", "Orders#2"],
             [item["name"] for item in output["named_sql_null_decomposition"]],
         )
         self.assertEqual(
-            [["A#1"], ["A#2", "B#2"], ["A#3", "B#3", "C#3"]],
+            [["A"], ["A#1", "B#1"], ["A#2", "B#2", "C#2"]],
             [
                 item["attributes"]
                 for item in output["named_sql_null_decomposition"]
             ],
+        )
+
+    def test_null_taxonomy_inclusion_dependencies_preserve_attribute_order(self):
+        output = analyze_schema(
+            SQLNullSchema(
+                fs(["E", "A", "B", "C"]),
+                fs(["B", "C"]),
+                (dep("implies_sql_null", "B", "C"),),
+                "R",
+                ("E", "A", "B", "C"),
+            )
+        )
+
+        self.assertEqual(
+            [
+                {
+                    "source_relation": "R#1",
+                    "target_relation": "R",
+                    "source_attributes": ["E#1", "A#1"],
+                    "target_attributes": ["E", "A"],
+                },
+                {
+                    "source_relation": "R#2",
+                    "target_relation": "R#1",
+                    "source_attributes": ["E#2", "A#2", "B#2"],
+                    "target_attributes": ["E#1", "A#1", "B#1"],
+                },
+            ],
+            output["null_taxonomy"]["edges"],
         )
 
 

@@ -472,16 +472,14 @@ HTML = r"""<!doctype html>
       width: min(180px, 100%);
       min-height: 26px;
       padding: 3px 7px;
-      background: var(--soft);
+      background: #f8fafc;
     }
     .cnf-attribute-input.key-attribute {
-      background: var(--key-bg, #e4f7e8);
       border-color: var(--key-border, #a8d8b1);
+      border-width: 3px;
     }
     .cnf-attribute-input.kind-identifier-attribute {
-      border-color: var(--kind-border, #7c3aed);
-      border-width: 3px;
-      box-shadow: 0 0 0 1px var(--kind-ring, rgba(124, 58, 237, 0.2));
+      background: var(--kind-bg, rgba(124, 58, 237, 0.18));
     }
     .attribute-edit {
       display: inline-flex;
@@ -937,6 +935,8 @@ HTML = r"""<!doctype html>
     let activeJointKindDialog = null;
     const sectionCollapseState = {};
     const kindIdentifierDraftSelections = new Map();
+    const kindIdentifierColorAssignments = new Map();
+    let nextKindIdentifierColorIndex = 0;
     const paneResize = {
       active: false,
       pointerId: null,
@@ -1380,12 +1380,54 @@ manager => empid`;
     }
 
     function kindIdentifierBorderColor(index) {
-      return kindIdentifierBorderColors[index % kindIdentifierBorderColors.length];
+      if (index < kindIdentifierBorderColors.length) {
+        return kindIdentifierBorderColors[index];
+      }
+      const hue = (index * 137.508) % 360;
+      const saturation = 68 + (index % 3) * 5;
+      const lightness = 36 + (index % 4) * 4;
+      return {
+        border: `hsl(${hue.toFixed(1)} ${saturation}% ${lightness}%)`,
+        ring: `hsl(${hue.toFixed(1)} ${saturation}% ${lightness}% / 0.22)`,
+      };
+    }
+
+    function resetKindIdentifierColorAssignments() {
+      kindIdentifierColorAssignments.clear();
+      nextKindIdentifierColorIndex = 0;
+    }
+
+    function nextKindIdentifierColorAssignment() {
+      const index = nextKindIdentifierColorIndex;
+      nextKindIdentifierColorIndex += 1;
+      return {
+        index,
+        color: kindIdentifierBorderColor(index),
+      };
+    }
+
+    function kindIdentifierColorAssignmentForKeys(keys) {
+      const uniqueKeys = unique(keys || []).filter(Boolean);
+      if (!uniqueKeys.length) return null;
+
+      let assignment = null;
+      for (const key of uniqueKeys) {
+        const existing = kindIdentifierColorAssignments.get(key);
+        if (!existing) continue;
+        if (!assignment || existing.index < assignment.index) {
+          assignment = existing;
+        }
+      }
+      if (!assignment) assignment = nextKindIdentifierColorAssignment();
+      for (const key of uniqueKeys) {
+        kindIdentifierColorAssignments.set(key, assignment);
+      }
+      return assignment;
     }
 
     function kindIdentifierStyle(color) {
       if (!color) return '';
-      return `--kind-border:${color.border};--kind-ring:${color.ring}`;
+      return `--kind-bg:${color.ring}`;
     }
 
     function disjointKeyGroups(keyConstraints = []) {
@@ -1636,13 +1678,14 @@ manager => empid`;
     }
 
     const showKindStructureSaveButtons = false;
+    const showCnfSaveButton = false;
 
     function renderConceptualActions() {
       return [
         renderCreateKindsButton(),
         showKindStructureSaveButtons ? renderKindIdentifierSaveButton() : '',
         showKindStructureSaveButtons ? renderInclusionPreorderSaveButton() : '',
-        renderCnfSaveButton(),
+        showCnfSaveButton ? renderCnfSaveButton() : '',
       ].join('');
     }
 
@@ -2037,11 +2080,6 @@ manager => empid`;
         .some(item => kindIdentifierObjectKey(item) === key);
     }
 
-    function relationSelectedKindIdentifiers(relation) {
-      return relationKindIdentifierObjects(relation)
-        .map(item => item.attributes || []);
-    }
-
     function normalizeJointKindIdentifierGroup(group, relation) {
       if (!Array.isArray(group)) return [];
       const identifiers = group.every(item => typeof item === 'string')
@@ -2097,13 +2135,71 @@ manager => empid`;
       mergeRelationKindIdentifiers(relation, identifiers);
     }
 
-    function kindIdentifierStyleMap(relation) {
+    function kindIdentifierGroupColorKeys(group) {
+      const keys = [];
+      const groupIdentifier = makeKindIdentifierFromNodes(
+        uniqueInclusionNodes((group || []).flatMap(kindIdentifierGroupItemNodes))
+      );
+      keys.push(kindIdentifierObjectKey(groupIdentifier));
+      for (const item of group || []) {
+        keys.push(item && item.key);
+        for (const identifier of (item && item.identifiers) || []) {
+          keys.push(kindIdentifierObjectKey(identifier));
+        }
+      }
+      return keys;
+    }
+
+    function rememberKindIdentifierColor(identifier, relatedIdentifiers = []) {
+      const keys = [
+        kindIdentifierObjectKey(identifier),
+        ...uniqueKindIdentifierObjects(relatedIdentifiers || []).map(kindIdentifierObjectKey),
+      ];
+      return kindIdentifierColorAssignmentForKeys(keys);
+    }
+
+    function kindIdentifierColorMap(cnf) {
+      const colors = new Map();
+      const groups = selectedKindIdentifierGroupDescriptors(cnf || {});
+      if (groups.length) {
+        for (const group of groups) {
+          const keys = kindIdentifierGroupColorKeys(group);
+          const assignment = kindIdentifierColorAssignmentForKeys(keys);
+          if (!assignment) continue;
+          for (const key of keys) {
+            if (key) colors.set(key, assignment.color);
+          }
+        }
+        return colors;
+      }
+
+      for (const identifier of selectedKindIdentifierSets(cnf || {})) {
+        const key = kindIdentifierObjectKey(identifier);
+        const assignment = kindIdentifierColorAssignmentForKeys([key]);
+        if (key && assignment) colors.set(key, assignment.color);
+      }
+      return colors;
+    }
+
+    function kindIdentifierStyleMap(relation, cnf = null) {
       const styles = new Map();
-      const identifiers = relationSelectedKindIdentifiers(relation);
-      for (const [index, item] of identifiers.entries()) {
-        const color = kindIdentifierBorderColor(index);
-        for (const attr of item) {
-          styles.set(attr, color);
+      const identifiers = relationKindIdentifierObjects(relation);
+      const colorSource = cnf && Array.isArray(cnf.relations)
+        ? cnf
+        : {relations: [relation]};
+      const colorsByKindIdentifier = kindIdentifierColorMap(colorSource);
+      for (const [index, identifier] of identifiers.entries()) {
+        const key = kindIdentifierObjectKey(identifier);
+        const color = colorsByKindIdentifier.get(key) || kindIdentifierBorderColor(index);
+        const relationAttributes = attrSet(relation && relation.attributes || []);
+        for (const node of identifier.nodes || []) {
+          if (!relationHasInclusionNode(relation, node)) continue;
+          for (const attr of node.attributes || []) {
+            if (relationAttributes.has(attr)) styles.set(attr, color);
+          }
+        }
+        for (const attr of identifier.attributes || []) {
+          if (relationAttributes.has(attr)) styles.set(attr, color);
         }
       }
       return styles;
@@ -2182,7 +2278,7 @@ manager => empid`;
         && !isGeneratedKindRelation(relation);
       const keyStyles = keyAttributeStyleMap(attributes, keyConstraints);
       const draftSelected = includeKindDraft ? draftSelectionForRelation(relation) : new Set();
-      const kindStyles = relation ? kindIdentifierStyleMap(relation) : new Map();
+      const kindStyles = relation ? kindIdentifierStyleMap(relation, options.cnf || cnfState) : new Map();
       return `<div class="attribute-list">${attributes.map((attribute, index) => {
         const keyStyle = keyAttributeStyle(keyStyles.get(attribute));
         const kindStyle = kindIdentifierStyle(kindStyles.get(attribute));
@@ -2194,7 +2290,7 @@ manager => empid`;
         if (isKeyAttribute) classes.push('key-attribute');
         if (isKindIdentifier) classes.push('kind-identifier-attribute');
         const width = Math.max(6, Math.min(24, String(attribute).length + 2));
-        const renderedWidth = isKindIdentifier
+        const renderedWidth = isKeyAttribute
           ? `calc(${width}ch + 4px)`
           : `${width}ch`;
         const styleParts = [`width:${renderedWidth}`];
@@ -4774,6 +4870,10 @@ manager => empid`;
           uniqueKindIdentifierObjects(addition.identifiers || []).flatMap(identifier => identifier.nodes || [])
         );
         if (!(mergedIdentifier.nodes || []).length) continue;
+        rememberKindIdentifierColor(mergedIdentifier, [
+          ...(addition.identifiers || []),
+          ...(addition.consumedIdentifiers || []),
+        ]);
         const consumedKeys = kindIdentifierObjectKeys(addition.consumedIdentifiers || []);
         changed = removeKindIdentifiersEverywhere(consumedKeys, changedRelations) || changed;
         const targetRelations = consumedKeys.size
@@ -4872,13 +4972,13 @@ manager => empid`;
         if (isGeneratedKindRelation(target)) {
           return `<div class="box relation-box">
             ${renderCnfRelationInput(target)}
-            ${renderEditableAttributes(target.attributes || [], keyConstraints, target, {includeKindDraft: false})}
+            ${renderEditableAttributes(target.attributes || [], keyConstraints, target, {includeKindDraft: false, cnf})}
             ${renderDependencyBox(dependencies, target.name, target.attributes)}
           </div>`;
         }
         return `<div class="box relation-box">
           ${renderCnfRelationInput(target)}
-          ${renderEditableAttributes(target.attributes, keyConstraints, target)}
+          ${renderEditableAttributes(target.attributes, keyConstraints, target, {cnf})}
           ${renderKindIdentifierRelationActions(target)}
           ${renderDependencyBox(dependencies, target.name, target.attributes)}
         </div>`;
@@ -5347,6 +5447,7 @@ manager => empid`;
       statusEl.textContent = 'Running';
       result.innerHTML = '<div class="empty">Computing decomposition...</div>';
       kindIdentifierDraftSelections.clear();
+      resetKindIdentifierColorAssignments();
       try {
         const response = await fetch('/api/analyze', {
           method: 'POST',
@@ -5389,6 +5490,7 @@ manager => empid`;
       activeData = null;
       cnfState = null;
       kindIdentifierDraftSelections.clear();
+      resetKindIdentifierColorAssignments();
       result.innerHTML = '<div class="empty">Compute the combined decomposition to see the result.</div>';
       statusEl.textContent = 'Ready';
     });
